@@ -86,7 +86,7 @@ Exit codes: `0` ok, `1` a finding at or above `--fail-on`, `2` error.
 
 ```yaml
 - run: cloudgraph scan ./infrastructure --format sarif --output results.sarif --fail-on high
-- uses: github/codeql-action/upload-sarif@v3
+- uses: github/codeql-action/upload-sarif@v4
   if: always()
   with:
     sarif_file: results.sarif

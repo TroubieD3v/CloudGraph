@@ -1,10 +1,10 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-// The production build is embedded into the Go binary (internal/ui/dist).
+// The production build is embedded into the Go binary (internal/ui/dist/app).
 export default defineConfig({
   plugins: [react()],
-  build: { outDir: "../internal/ui/dist", emptyOutDir: true, chunkSizeWarningLimit: 900 },
+  build: { outDir: "../internal/ui/dist/app", emptyOutDir: true, chunkSizeWarningLimit: 900 },
   server: {
     port: 5173,
     // The API rejects cross-origin writes, so present the proxied requests as same-origin.

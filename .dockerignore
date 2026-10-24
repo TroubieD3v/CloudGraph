@@ -2,5 +2,5 @@
 bin
 web/node_modules
 web/test-results
-internal/ui/dist
+internal/ui/dist/app
 *.db

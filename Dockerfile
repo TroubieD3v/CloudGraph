@@ -4,14 +4,14 @@ WORKDIR /src/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci
 COPY web/ ./
-RUN mkdir -p ../internal/ui/dist && npm run build
+RUN npm run build
 
 FROM golang:1.27-alpine AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-COPY --from=ui /src/internal/ui/dist ./internal/ui/dist
+COPY --from=ui /src/internal/ui/dist/app ./internal/ui/dist/app
 ARG VERSION=dev
 RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /out/cloudgraph ./cmd/cloudgraph
 

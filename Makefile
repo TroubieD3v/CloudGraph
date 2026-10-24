@@ -19,4 +19,4 @@ demo: build
 
 clean:
 	rm -rf bin web/node_modules web/test-results
-	find internal/ui/dist -mindepth 1 ! -name .gitkeep -delete
+	rm -rf internal/ui/dist/app
