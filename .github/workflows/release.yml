@@ -36,10 +36,27 @@ jobs:
             if [ "$os" = windows ]; then (cd dist && zip -qr "$name.zip" "$name"); else tar -C dist -czf "dist/$name.tar.gz" "$name"; fi
           done
           (cd dist && sha256sum *.tar.gz *.zip > checksums.txt)
+      - name: Smoke-test the Linux binary
+        run: |
+          bin="dist/cloudgraph_${GITHUB_REF_NAME}_linux_amd64/cloudgraph"
+          "$bin" version | grep -q "${GITHUB_REF_NAME}"
+          "$bin" scan demo:insecure-kubernetes --format json --output /tmp/r.json
+          "$bin" serve --addr 127.0.0.1:18080 --db :memory: &
+          pid=$!
+          for i in $(seq 1 20); do curl -fsS http://127.0.0.1:18080/api/health && break; sleep 0.5; done
+          curl -fsS http://127.0.0.1:18080/ | grep -q '<div id="root">'
+          kill "$pid"
+      - name: Release notes from CHANGELOG.md
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="$version" '$0 == "## " v {on=1; next} /^## / {on=0} on' CHANGELOG.md > notes.md
+          test -s notes.md || { echo "CHANGELOG.md has no section for $version"; exit 1; }
+          printf '\n**Downloads**: one static binary per platform, web UI and demo projects included. Verify with `checksums.txt`.\n' >> notes.md
       - uses: softprops/action-gh-release@v2
         with:
+          name: CloudGraph ${{ github.ref_name }}
+          body_path: notes.md
           files: |
             dist/*.tar.gz
             dist/*.zip
             dist/checksums.txt
-          generate_release_notes: true
