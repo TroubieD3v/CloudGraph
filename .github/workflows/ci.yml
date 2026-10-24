@@ -50,7 +50,8 @@ jobs:
         run: |
           docker run -d --name cg -p 127.0.0.1:8080:8080 cloudgraph
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8080/api/health && break; sleep 1; done
-          curl -fsS http://127.0.0.1:8080/ | grep -q '<div id="root">'
+          curl -fsS http://127.0.0.1:8080/ | grep -q '<div id="root">' || { docker logs cg; exit 1; }
+          curl -fsS -X POST -H 'Content-Type: application/json' -d '{"demo":"insecure-kubernetes"}'             http://127.0.0.1:8080/api/analyses | grep -q '"paths"' || { docker logs cg; exit 1; }
           docker rm -f cg
 
   scan-examples:
