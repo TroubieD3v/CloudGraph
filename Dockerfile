@@ -13,10 +13,13 @@ RUN go mod download
 COPY . .
 COPY --from=ui /src/internal/ui/dist/app ./internal/ui/dist/app
 ARG VERSION=dev
-RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /out/cloudgraph ./cmd/cloudgraph
+RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /out/cloudgraph ./cmd/cloudgraph \
+ && mkdir -p /out/data
 
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /out/cloudgraph /usr/local/bin/cloudgraph
+# The image runs as the distroless "nonroot" user (65532); it must own the database directory.
+COPY --from=build --chown=65532:65532 /out/data /data
 VOLUME ["/data"]
 EXPOSE 8080
 ENTRYPOINT ["cloudgraph"]
