@@ -2,6 +2,7 @@ package rules_test
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/TroubieD3v/cloudgraph/internal/rules"
@@ -70,5 +71,13 @@ func TestNegativeCases(t *testing.T) {
 				t.Errorf("rule %s must not fire", c.rule)
 			}
 		})
+	}
+}
+
+func TestRulesDocIsUpToDate(t *testing.T) {
+	want := rules.Markdown()
+	got, err := os.ReadFile("../../docs/RULES.md")
+	if err != nil || strings.ReplaceAll(string(got), "\r\n", "\n") != want {
+		t.Fatal("docs/RULES.md is stale; regenerate with: go run ./cmd/cloudgraph rules --format markdown > docs/RULES.md")
 	}
 }

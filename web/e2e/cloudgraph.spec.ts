@@ -121,3 +121,23 @@ test("unsupported upload shows an error", async ({ page }) => {
   await page.getByTestId("file-input").setInputFiles({ name: "values.yaml", mimeType: "text/yaml", buffer: Buffer.from("replicaCount: 2\n") });
   await expect(page.locator(".error")).toContainText("no supported resources");
 });
+
+test("reports can be downloaded and analyses deleted", async ({ page }) => {
+  await analyse(page, "vulnerable-ecommerce");
+  const [download] = await Promise.all([page.waitForEvent("download"), page.getByTestId("exports").getByText("SARIF").click()]);
+  expect(download.suggestedFilename()).toMatch(/\.sarif$/);
+  const body = await (await download.createReadStream()).toArray();
+  const sarif = JSON.parse(Buffer.concat(body).toString());
+  expect(sarif.version).toBe("2.1.0");
+
+  page.once("dialog", (d) => d.accept());
+  await page.getByRole("button", { name: "Delete" }).click();
+  await expect(page.getByTestId("demo-vulnerable-ecommerce")).toBeVisible();
+});
+
+test("what-if marks fixes as patchable or manual", async ({ page }) => {
+  await analyse(page, "vulnerable-ecommerce");
+  await page.getByRole("tab", { name: "What-if" }).click();
+  await expect(page.getByTestId("fix").filter({ hasText: "patch: docker-compose.yml" }).first()).toBeVisible();
+  await expect(page.getByTestId("fix").filter({ hasText: "manual change in Terraform" }).first()).toBeVisible();
+});

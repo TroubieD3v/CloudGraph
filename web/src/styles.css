@@ -186,3 +186,4 @@ ul.plain li:first-child { border-top: none; }
   .whatif { grid-template-columns: 1fr; }
   .diffgrid { grid-template-columns: repeat(2, 1fr); }
 }
+a.btn { text-decoration: none; color: var(--fg); display: inline-block; }

@@ -112,7 +112,12 @@ export function WhatIf({ a }: { a: Analysis }) {
               <span>
                 {sev && <Badge sev={sev} />} {f.description}
                 <div className="note">
-                  resolves {f.findingIds?.length ?? 0} finding(s){f.action.startsWith("tf_") ? " · manual change in Terraform" : ""}
+                  resolves {f.findingIds?.length ?? 0} finding(s) ·{" "}
+                  {f.edits?.length ? (
+                    <span>patch: {[...new Set(f.edits.map((e) => e.file))].join(", ")}</span>
+                  ) : (
+                    <span>manual change{f.action.startsWith("tf_") ? " in Terraform" : ""}</span>
+                  )}
                 </div>
               </span>
               <span className="impact">{im ? <><b>{im.paths}</b> path{im.paths === 1 ? "" : "s"}</> : "…"}</span>

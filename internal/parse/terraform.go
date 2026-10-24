@@ -193,10 +193,11 @@ func parseTerraform(f File) ([]*model.Resource, []string, error) {
 			for _, ig := range anyList(vals["ingress"]) {
 				r.TF.Ingress = append(r.TF.Ingress, ingressOf(ig))
 			}
-		case "aws_security_group_rule":
+		case "aws_security_group_rule", "aws_vpc_security_group_ingress_rule":
+			// Kept standalone only if its security group is not part of the plan.
 			r.Kind = model.KindFirewall
-			if str, _ := vals["type"].(string); str == "ingress" {
-				r.TF.Ingress = append(r.TF.Ingress, ingressOf(vals))
+			if ig, ok := ruleIngress(raw.Type, vals); ok {
+				r.TF.Ingress = append(r.TF.Ingress, ig)
 			}
 		case "aws_instance":
 			r.Kind = model.KindInstance
@@ -267,6 +268,7 @@ func parseTerraform(f File) ([]*model.Resource, []string, error) {
 	}
 
 	// Fold companion resources into their owners.
+	merged := map[string]bool{}
 	for _, raw := range raws {
 		refs := resolveRefs(raw.Address)
 		vals := raw.Values
@@ -311,22 +313,21 @@ func parseTerraform(f File) ([]*model.Resource, []string, error) {
 				t := true
 				b.TF.Encrypted = &t
 			}
-		case "aws_security_group_rule":
-			// merge rule into its group
+		case "aws_security_group_rule", "aws_vpc_security_group_ingress_rule":
+			// merge the rule into its group so exposure is evaluated in one place
 			if sg := byID(byAddr, first(refs["security_group_id"])); sg != nil && sg.Type == "aws_security_group" {
-				if t, _ := vals["type"].(string); t == "ingress" {
-					sg.TF.Ingress = append(sg.TF.Ingress, ingressOf(vals))
+				if ig, ok := ruleIngress(raw.Type, vals); ok {
+					sg.TF.Ingress = append(sg.TF.Ingress, ig)
 				}
+				merged[raw.Address] = true
 			}
 		}
 	}
-	// aws_security_group_rule resources have been merged; drop standalone copies.
 	filtered := out[:0]
 	for _, r := range out {
-		if r.Type == "aws_security_group_rule" {
-			continue
+		if !merged[strings.TrimPrefix(r.ID, "tf:")] {
+			filtered = append(filtered, r)
 		}
-		filtered = append(filtered, r)
 	}
 	out = filtered
 
@@ -420,6 +421,28 @@ func ingressOf(v any) model.TFIngress {
 		ig.CIDRs = append(ig.CIDRs, s)
 	}
 	return ig
+}
+
+// ruleIngress normalises standalone ingress rule resources.
+func ruleIngress(typ string, vals map[string]any) (model.TFIngress, bool) {
+	if typ == "aws_security_group_rule" {
+		if t, _ := vals["type"].(string); t != "ingress" {
+			return model.TFIngress{}, false
+		}
+		return ingressOf(vals), true
+	}
+	// aws_vpc_security_group_ingress_rule (AWS provider v5 style)
+	ig := model.TFIngress{From: numOf(vals["from_port"]), To: numOf(vals["to_port"])}
+	ig.Protocol, _ = vals["ip_protocol"].(string)
+	if ig.Protocol == "-1" {
+		ig.From, ig.To = 0, 65535
+	}
+	for _, k := range []string{"cidr_ipv4", "cidr_ipv6"} {
+		if c, _ := vals[k].(string); c != "" {
+			ig.CIDRs = append(ig.CIDRs, c)
+		}
+	}
+	return ig, true
 }
 
 func rootVolumeEncrypted(vals map[string]any) *bool {

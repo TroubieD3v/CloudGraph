@@ -16,7 +16,8 @@ import (
 	"github.com/TroubieD3v/cloudgraph/internal/rules"
 )
 
-const version = "0.1.0"
+// version is overridden at release time: -ldflags "-X main.version=v1.2.3"
+var version = "0.1.0"
 
 const usage = `CloudGraph — offline infrastructure attack path analysis
 
@@ -25,7 +26,7 @@ Usage:
   cloudgraph simulate <path|demo:NAME>... (--list | --fix ID,ID | --all) [--patch FILE]
   cloudgraph diff <A> <B>
   cloudgraph serve [--addr 127.0.0.1:8080] [--db cloudgraph.db]
-  cloudgraph rules
+  cloudgraph rules [--format table|markdown]
   cloudgraph demos
   cloudgraph version
 
@@ -52,7 +53,7 @@ func main() {
 	case "serve":
 		err = cmdServe(args)
 	case "rules":
-		cmdRules()
+		err = cmdRules(args)
 	case "demos":
 		for _, d := range examples.List() {
 			fmt.Printf("demo:%-24s %s\n", d.Name, d.Title)
@@ -276,8 +277,21 @@ func cmdDiff(args []string) error {
 	return nil
 }
 
-func cmdRules() {
-	for _, r := range rules.All() {
-		fmt.Printf("%-11s %-9s %-11s %s\n", r.ID, r.Severity, r.Domain, r.Title)
+func cmdRules(args []string) error {
+	fs := flag.NewFlagSet("rules", flag.ContinueOnError)
+	format := fs.String("format", "table", "table or markdown")
+	if _, err := parseInterspersed(fs, args); err != nil {
+		return err
 	}
+	switch *format {
+	case "markdown":
+		fmt.Print(rules.Markdown())
+	case "table":
+		for _, r := range rules.All() {
+			fmt.Printf("%-11s %-9s %-11s %s\n", r.ID, r.Severity, r.Domain, r.Title)
+		}
+	default:
+		return fmt.Errorf("unknown format %q", *format)
+	}
+	return nil
 }

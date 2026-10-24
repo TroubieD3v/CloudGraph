@@ -232,3 +232,72 @@ func attrStrings(v any) []string {
 	}
 	return nil
 }
+
+// dropCapEdits removes dangerous entries from a cap_add / capabilities.add list,
+// handling both flow (`add: ["A", "B"]`) and block style lists.
+func (c *Ctx) dropCapEdits(file string, keyLine int, caps []string, lines []int) []model.Edit {
+	if keyLine == 0 || len(caps) == 0 || len(caps) != len(lines) {
+		return nil
+	}
+	var keep []string
+	var drop []int
+	for i, cp := range caps {
+		if len(model.DangerousCaps([]string{cp})) > 0 {
+			drop = append(drop, lines[i])
+		} else {
+			keep = append(keep, cp)
+		}
+	}
+	if len(drop) == 0 {
+		return nil
+	}
+	flow := true
+	for _, l := range lines {
+		flow = flow && l == keyLine
+	}
+	if flow {
+		l, ok := c.line(file, keyLine)
+		idx := strings.Index(l, "[")
+		if !ok || idx < 0 {
+			return nil
+		}
+		if len(keep) == 0 {
+			return okEdits(c.deleteLines(file, keyLine, keyLine))
+		}
+		q := ""
+		if strings.Contains(l[idx:], `"`) {
+			q = `"`
+		}
+		parts := make([]string, len(keep))
+		for i, k := range keep {
+			parts[i] = q + k + q
+		}
+		return okEdits(c.replaceLine(file, keyLine, l[:idx]+"["+strings.Join(parts, ", ")+"]"))
+	}
+	if len(keep) == 0 {
+		last := keyLine
+		for _, l := range lines {
+			last = max(last, l)
+		}
+		return okEdits(c.deleteLines(file, keyLine, last))
+	}
+	var out []model.Edit
+	for _, l := range drop {
+		out = append(out, okEdits(c.deleteLines(file, l, l))...)
+	}
+	return out
+}
+
+// removeVolumeEdits deletes a pod volume and every volumeMount that uses it.
+func (c *Ctx) removeVolumeEdits(r *model.Resource, v model.Volume) []model.Edit {
+	if v.Span[0] == 0 {
+		return nil
+	}
+	out := okEdits(c.deleteLines(r.Src.File, v.Span[0], v.Span[1]))
+	for _, ct := range r.Workload.Containers {
+		if sp, ok := ct.MountSpans[v.Name]; ok && sp[0] > 0 {
+			out = append(out, okEdits(c.deleteLines(r.Src.File, sp[0], sp[1]))...)
+		}
+	}
+	return out
+}

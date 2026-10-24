@@ -42,6 +42,7 @@ export interface Fix {
   target: string;
   description: string;
   findingIds?: string[];
+  edits?: { file: string; startLine: number; endLine: number }[];
 }
 
 export interface Finding {

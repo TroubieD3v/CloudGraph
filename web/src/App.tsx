@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import type { Analysis, Demo, HistoryItem, Source } from "./types";
 import { DiffView } from "./components/DiffView";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Findings } from "./components/Findings";
 import { GraphView } from "./components/GraphView";
 import { Overview } from "./components/Overview";
@@ -67,6 +68,17 @@ export default function App() {
       return;
     }
     await adopt(api.analyzeFiles("upload", read));
+  };
+
+  const removeCurrent = async () => {
+    if (!a || !window.confirm(`Delete analysis "${a.name}" from the local history?`)) return;
+    try {
+      await api.remove(a.id);
+      setA(null);
+      await refresh();
+    } catch (e) {
+      setErr(String((e as Error).message));
+    }
   };
 
   const showPath = (id: string) => {
@@ -143,12 +155,14 @@ export default function App() {
       </nav>
       <div className={`content ${tab === "graph" ? "full" : ""}`}>
         {err && <div className="error">{err}</div>}
-        {tab === "overview" && <Overview a={a} onOpen={setSrc} onShowPath={showPath} />}
-        {tab === "graph" && <GraphView a={a} pathId={pathId} setPathId={setPathId} onOpen={setSrc} />}
-        {tab === "findings" && <Findings a={a} onOpen={setSrc} />}
-        {tab === "whatif" && <WhatIf a={a} />}
-        {tab === "diff" && <DiffView history={history} refresh={refresh} />}
-        {tab === "unknown" && <Unknowns a={a} onOpen={setSrc} />}
+        <ErrorBoundary resetKey={`${a.id}:${tab}`}>
+          {tab === "overview" && <Overview a={a} onOpen={setSrc} onShowPath={showPath} onDelete={removeCurrent} />}
+          {tab === "graph" && <GraphView a={a} pathId={pathId} setPathId={setPathId} onOpen={setSrc} />}
+          {tab === "findings" && <Findings a={a} onOpen={setSrc} />}
+          {tab === "whatif" && <WhatIf a={a} />}
+          {tab === "diff" && <DiffView history={history} refresh={refresh} />}
+          {tab === "unknown" && <Unknowns a={a} onOpen={setSrc} />}
+        </ErrorBoundary>
       </div>
       {src && <SourceViewer src={src} lines={a.sources?.[src.file]} onClose={() => setSrc(null)} />}
       <input ref={fileInput} type="file" accept={ACCEPT} multiple hidden onChange={(e) => e.target.files && void onFiles(e.target.files)} data-testid="file-input" />

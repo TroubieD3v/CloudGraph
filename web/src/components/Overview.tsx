@@ -5,16 +5,36 @@ export function Overview({
   a,
   onOpen,
   onShowPath,
+  onDelete,
 }: {
   a: Analysis;
   onOpen: (s: Source) => void;
   onShowPath: (id: string) => void;
+  onDelete: () => void;
 }) {
   const names = nameMap(a);
   const s = a.summary;
   const sev = SEVERITIES.filter((k) => s.bySeverity[k]).map((k) => `${s.bySeverity[k]} ${k}`).join(" · ");
   return (
     <div>
+      <div className="toolbar" style={{ justifyContent: "space-between" }}>
+        <div>
+          <b>{a.name}</b>{" "}
+          <span className="note">
+            {a.inputs.length} file(s) · analysed {new Date(a.createdAt).toLocaleString()}
+          </span>
+        </div>
+        <div style={{ display: "flex", gap: 6 }} data-testid="exports">
+          {(["html", "sarif", "json"] as const).map((ext) => (
+            <a key={ext} className="btn small" href={`/api/analyses/${a.id}/report/${ext}`} download>
+              {ext.toUpperCase()}
+            </a>
+          ))}
+          <button className="btn small ghost" onClick={onDelete} title="Remove from local history">
+            Delete
+          </button>
+        </div>
+      </div>
       <div className="stats">
         <div className="stat" data-testid="stat-resources">
           <div className="label">Resources</div>

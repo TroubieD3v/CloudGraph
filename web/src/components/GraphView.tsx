@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Background,
   Controls,
@@ -7,6 +7,7 @@ import {
   MiniMap,
   Position,
   ReactFlow,
+  useReactFlow,
   type Edge as RFEdge,
   type Node as RFNode,
   type NodeProps,
@@ -47,7 +48,7 @@ const nodeTypes = { cg: CgNode };
 
 function layout(nodes: RFNode<NodeData>[], edges: RFEdge[]): RFNode<NodeData>[] {
   const g = new dagre.graphlib.Graph();
-  g.setGraph({ rankdir: "LR", nodesep: 28, ranksep: 90, marginx: 20, marginy: 20 });
+  g.setGraph({ rankdir: "LR", nodesep: 18, ranksep: 48, marginx: 20, marginy: 20 });
   g.setDefaultEdgeLabel(() => ({}));
   nodes.forEach((n) => g.setNode(n.id, { width: W, height: H }));
   edges.forEach((e) => g.setEdge(e.source, e.target));
@@ -116,7 +117,14 @@ export function GraphView({
       .map((id) => {
         const fs = findingsBy.get(id) ?? [];
         const worst = fs.map((f) => f.severity).sort((x, y) => sevRank(x) - sevRank(y))[0];
-        return { id, type: "cg", position: { x: 0, y: 0 }, data: { res: names.get(id)!, worst, dim: !!path && !pathNodes.has(id) } };
+        return {
+          id,
+          type: "cg",
+          position: { x: 0, y: 0 },
+          width: W,
+          height: H,
+          data: { res: names.get(id)!, worst, dim: !!path && !pathNodes.has(id) },
+        };
       });
     return { nodes: layout(rfNodes, rfEdges), edges: rfEdges };
   }, [a, mode, path, names, findingsBy]);
@@ -177,7 +185,14 @@ export function GraphView({
         >
           <Background gap={22} color="#202734" />
           <Controls showInteractive={false} />
-          <MiniMap pannable zoomable nodeColor={(n) => ((n.data as NodeData).res.sensitive ? "#e5534b" : "#3a4459")} maskColor="rgba(13,16,22,.7)" />
+          <MiniMap
+            pannable
+            zoomable
+            bgColor="#151a23"
+            nodeColor={(n) => ((n.data as NodeData).res.sensitive ? "#e5534b" : (n.data as NodeData).dim ? "#2a3140" : "#6b7891")}
+            maskColor="rgba(13,16,22,.55)"
+          />
+          <FitOnChange nodeIds={path?.nodes} trigger={`${pathId}|${mode}|${sel ? "open" : "closed"}`} />
         </ReactFlow>
       </div>
       {(selectedNode || selectedEdge) && (
@@ -188,6 +203,19 @@ export function GraphView({
       )}
     </>
   );
+}
+
+// Re-frames the canvas when the highlighted path, the view or the inspector changes.
+function FitOnChange({ nodeIds, trigger }: { nodeIds?: string[]; trigger: string }) {
+  const { fitView } = useReactFlow();
+  useEffect(() => {
+    const t = setTimeout(() => {
+      void fitView({ padding: 0.12, duration: 300, maxZoom: 1.2, nodes: nodeIds?.map((id) => ({ id })) });
+    }, 30);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trigger]);
+  return null;
 }
 
 function EdgeBlock({ e, names, onOpen, dir }: { e: Edge; names: Map<string, Resource>; onOpen: (s: Source) => void; dir: "in" | "out" }) {

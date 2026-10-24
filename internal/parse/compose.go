@@ -87,7 +87,13 @@ func composeService(f File, sp pair, warns *[]string) *model.Resource {
 	ct.Privileged = boolPtr(get(n, "privileged"))
 	ct.Locs["privileged"] = keyLine(n, "privileged")
 	ct.ReadOnlyRootFS = boolPtr(get(n, "read_only"))
-	ct.CapAdd = strList(get(n, "cap_add"))
+	for _, it := range items(get(n, "cap_add")) {
+		if v := str(it); v != "" {
+			ct.CapAdd = append(ct.CapAdd, v)
+			ct.CapAddLines = append(ct.CapAddLines, it.Line)
+		}
+	}
+	ct.Locs["capAddKey"] = keyLine(n, "cap_add")
 	ct.CapDrop = strList(get(n, "cap_drop"))
 	ct.Locs["cap_add"] = keyLine(n, "cap_add")
 	if u := str(get(n, "user")); u != "" {
@@ -203,7 +209,7 @@ func composeService(f File, sp pair, warns *[]string) *model.Resource {
 
 	// volumes / mounts
 	for i, v := range items(get(n, "volumes")) {
-		vol := model.Volume{Line: v.Line}
+		vol := model.Volume{Line: v.Line, Span: [2]int{v.Line, lastLine(v)}}
 		if v.Kind == yaml.ScalarNode {
 			parts := strings.Split(v.Value, ":")
 			vol.Source = parts[0]

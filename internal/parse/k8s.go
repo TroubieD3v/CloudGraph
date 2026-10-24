@@ -64,20 +64,28 @@ func parseKubernetes(f File) ([]*model.Resource, []string, error) {
 		if root == nil || root.Kind != yaml.MappingNode {
 			continue
 		}
-		out = append(out, k8sObject(f, root, &warns)...)
+		out = append(out, k8sObject(f, root, &warns, 0)...)
 	}
 	return out, warns, nil
 }
 
-func k8sObject(f File, n *yaml.Node, warns *[]string) []*model.Resource {
+func k8sObject(f File, n *yaml.Node, warns *[]string, depth int) []*model.Resource {
 	kind := strAt(n, "kind")
 	if kind == "" {
 		return nil
 	}
 	if kind == "List" {
+		// Lists may nest, and YAML aliases can make a List contain itself.
+		if depth >= 3 {
+			*warns = append(*warns, fmt.Sprintf("%s:%d: List nested too deeply (or self-referencing alias), skipped", f.Name, n.Line))
+			return nil
+		}
 		var out []*model.Resource
 		for _, it := range items(get(n, "items")) {
-			out = append(out, k8sObject(f, it, warns)...)
+			if it == n {
+				continue
+			}
+			out = append(out, k8sObject(f, it, warns, depth+1)...)
 		}
 		return out
 	}
@@ -234,7 +242,7 @@ func parsePod(spec, meta *yaml.Node, isPod bool, r *model.Resource) *model.Workl
 	podUser := intPtr(get(podSC, "runAsUser"))
 
 	for _, v := range items(get(spec, "volumes")) {
-		vol := model.Volume{Name: strAt(v, "name"), Kind: "other", Line: v.Line}
+		vol := model.Volume{Name: strAt(v, "name"), Kind: "other", Line: v.Line, Span: [2]int{v.Line, lastLine(v)}}
 		switch {
 		case get(v, "hostPath") != nil:
 			vol.Kind, vol.Source = "hostPath", strAt(v, "hostPath", "path")
@@ -279,7 +287,13 @@ func parsePod(spec, meta *yaml.Node, isPod bool, r *model.Resource) *model.Workl
 			if ct.RunAsUser == nil {
 				ct.RunAsUser = podUser
 			}
-			ct.CapAdd = strList(dig(sc, "capabilities", "add"))
+			for _, it := range items(dig(sc, "capabilities", "add")) {
+				if v := str(it); v != "" {
+					ct.CapAdd = append(ct.CapAdd, v)
+					ct.CapAddLines = append(ct.CapAddLines, it.Line)
+				}
+			}
+			ct.Locs["capAddKey"] = keyLine(get(sc, "capabilities"), "add")
 			ct.CapDrop = strList(dig(sc, "capabilities", "drop"))
 			for _, key := range []string{"privileged", "allowPrivilegeEscalation", "runAsNonRoot", "runAsUser", "readOnlyRootFilesystem"} {
 				if l := keyLine(sc, key); l > 0 {
@@ -308,7 +322,12 @@ func parsePod(spec, meta *yaml.Node, isPod bool, r *model.Resource) *model.Workl
 				}
 			}
 			for _, vm := range items(get(c, "volumeMounts")) {
-				ct.Mounts = append(ct.Mounts, strAt(vm, "name"))
+				name := strAt(vm, "name")
+				ct.Mounts = append(ct.Mounts, name)
+				if ct.MountSpans == nil {
+					ct.MountSpans = map[string][2]int{}
+				}
+				ct.MountSpans[name] = [2]int{vm.Line, lastLine(vm)}
 			}
 			for _, p := range items(get(c, "ports")) {
 				if cp := intPtr(get(p, "containerPort")); cp != nil {

@@ -109,7 +109,8 @@ func init() {
 					}
 					out = append(out, Draft{Key: v.Name, Line: v.Line, Path: "volumes", Severity: sev,
 						Message: fmt.Sprintf("%s %s mounts host path %s.", r.Type, r.Name, v.Source),
-						Fix:     newFix("remove_volume", r.ID, fmt.Sprintf("Remove hostPath volume %s from %s", v.Name, r.Name), map[string]any{"name": v.Name})})
+						Fix: newFix("remove_volume", r.ID, fmt.Sprintf("Remove hostPath volume %s from %s", v.Name, r.Name), map[string]any{"name": v.Name},
+							c.removeVolumeEdits(r, v)...)})
 				}
 			}
 			return out
@@ -149,7 +150,8 @@ func init() {
 				if d := model.DangerousCaps(ct.CapAdd); len(d) > 0 {
 					out = append(out, Draft{Key: ct.Name, Line: containerLine(ct, "capabilities"), Path: "securityContext.capabilities.add",
 						Message: fmt.Sprintf("Container %q in %s adds %s.", ct.Name, r.Name, strings.Join(d, ", ")),
-						Fix:     newFix("drop_caps", r.ID, fmt.Sprintf("Remove dangerous capabilities from %s/%s", r.Name, ct.Name), map[string]any{"container": ct.Name})})
+						Fix: newFix("drop_caps", r.ID, fmt.Sprintf("Remove dangerous capabilities from %s/%s", r.Name, ct.Name), map[string]any{"container": ct.Name},
+							c.dropCapEdits(r.Src.File, ct.Locs["capAddKey"], ct.CapAdd, ct.CapAddLines)...)})
 				}
 			}
 			return out

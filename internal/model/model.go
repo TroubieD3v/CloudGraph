@@ -86,20 +86,22 @@ type EnvVar struct {
 
 // Container is the security-relevant view of one container / compose service.
 type Container struct {
-	Name           string         `json:"name"`
-	Image          string         `json:"image"`
-	Privileged     *bool          `json:"privileged,omitempty"`
-	AllowPrivEsc   *bool          `json:"allowPrivilegeEscalation,omitempty"`
-	RunAsNonRoot   *bool          `json:"runAsNonRoot,omitempty"`
-	RunAsUser      *int64         `json:"runAsUser,omitempty"`
-	ReadOnlyRootFS *bool          `json:"readOnlyRootFilesystem,omitempty"`
-	CapAdd         []string       `json:"capAdd,omitempty"`
-	CapDrop        []string       `json:"capDrop,omitempty"`
-	Env            []EnvVar       `json:"env,omitempty"`
-	EnvFromSecrets []string       `json:"envFromSecrets,omitempty"`
-	HasLimits      bool           `json:"hasLimits"`
-	Mounts         []string       `json:"mounts,omitempty"` // volume names mounted by this container
-	Locs           map[string]int `json:"locs,omitempty"`
+	Name           string            `json:"name"`
+	Image          string            `json:"image"`
+	Privileged     *bool             `json:"privileged,omitempty"`
+	AllowPrivEsc   *bool             `json:"allowPrivilegeEscalation,omitempty"`
+	RunAsNonRoot   *bool             `json:"runAsNonRoot,omitempty"`
+	RunAsUser      *int64            `json:"runAsUser,omitempty"`
+	ReadOnlyRootFS *bool             `json:"readOnlyRootFilesystem,omitempty"`
+	CapAdd         []string          `json:"capAdd,omitempty"`
+	CapDrop        []string          `json:"capDrop,omitempty"`
+	Env            []EnvVar          `json:"env,omitempty"`
+	EnvFromSecrets []string          `json:"envFromSecrets,omitempty"`
+	HasLimits      bool              `json:"hasLimits"`
+	Mounts         []string          `json:"mounts,omitempty"` // volume names mounted by this container
+	MountSpans     map[string][2]int `json:"mountSpans,omitempty"`
+	CapAddLines    []int             `json:"capAddLines,omitempty"` // line of each CapAdd entry
+	Locs           map[string]int    `json:"locs,omitempty"`
 }
 
 // Volume is a pod volume or compose mount.
@@ -109,6 +111,7 @@ type Volume struct {
 	Source   string `json:"source,omitempty"`
 	ReadOnly bool   `json:"readOnly,omitempty"`
 	Line     int    `json:"line,omitempty"`
+	Span     [2]int `json:"span,omitempty"` // first and last line of the list item
 }
 
 // PortBinding is a published port (compose) or service-level exposure.

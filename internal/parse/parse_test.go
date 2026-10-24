@@ -198,3 +198,41 @@ func TestTerraformMaskingAndRefs(t *testing.T) {
 		t.Errorf("sg parse wrong: %+v line=%d", sg.TF, sg.Src.Line)
 	}
 }
+
+func TestTerraformStandaloneRulesAndModules(t *testing.T) {
+	plan := `{
+ "format_version": "1.2",
+ "planned_values": {"root_module": {"resources": [
+  {"address":"aws_security_group.web","mode":"managed","type":"aws_security_group","name":"web","values":{"ingress":[]}},
+  {"address":"aws_vpc_security_group_ingress_rule.ssh","mode":"managed","type":"aws_vpc_security_group_ingress_rule","name":"ssh",
+   "values":{"cidr_ipv4":"0.0.0.0/0","from_port":22,"to_port":22,"ip_protocol":"tcp"}},
+  {"address":"aws_vpc_security_group_ingress_rule.orphan","mode":"managed","type":"aws_vpc_security_group_ingress_rule","name":"orphan",
+   "values":{"cidr_ipv4":"0.0.0.0/0","ip_protocol":"-1"}}
+ ], "child_modules": [{"address":"module.app","resources":[
+  {"address":"module.app.aws_instance.this","mode":"managed","type":"aws_instance","name":"this","values":{"associate_public_ip_address":true}},
+  {"address":"module.app.aws_security_group.this","mode":"managed","type":"aws_security_group","name":"this","values":{"ingress":[]}}
+ ]}]}},
+ "configuration": {"root_module": {
+  "resources": [{"address":"aws_vpc_security_group_ingress_rule.ssh","expressions":{"security_group_id":{"references":["aws_security_group.web.id","aws_security_group.web"]}}}],
+  "module_calls": {"app": {"module": {"resources": [
+    {"address":"aws_instance.this","expressions":{"vpc_security_group_ids":{"references":["aws_security_group.this.id","aws_security_group.this"]}}}
+  ]}}}
+ }}
+}`
+	inv := parseOne(t, "plan.json", plan)
+	web := find(inv, "tf:aws_security_group.web")
+	if web == nil || len(web.TF.Ingress) != 1 || web.TF.Ingress[0].From != 22 || web.TF.Ingress[0].CIDRs[0] != "0.0.0.0/0" {
+		t.Fatalf("vpc ingress rule not merged into its group: %+v", web)
+	}
+	if find(inv, "tf:aws_vpc_security_group_ingress_rule.ssh") != nil {
+		t.Error("merged rule should not remain as a separate resource")
+	}
+	orphan := find(inv, "tf:aws_vpc_security_group_ingress_rule.orphan")
+	if orphan == nil || orphan.TF.Ingress[0].To != 65535 {
+		t.Errorf("rule without a group in the plan must be kept: %+v", orphan)
+	}
+	inst := find(inv, "tf:module.app.aws_instance.this")
+	if inst == nil || len(inst.Refs["vpc_security_group_ids"]) != 1 || inst.Refs["vpc_security_group_ids"][0] != "tf:module.app.aws_security_group.this" {
+		t.Errorf("module references not resolved: %+v", inst)
+	}
+}

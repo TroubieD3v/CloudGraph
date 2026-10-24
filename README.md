@@ -7,6 +7,8 @@ CloudGraph reads your Docker Compose, Kubernetes and Terraform configuration, bu
 
 A path is **conditional**. CloudGraph never claims that an application can actually be hacked; it shows which preconditions must hold, where each step comes from (file and line), and how confident the engine is.
 
+![Overview with conditional attack paths](docs/screenshots/overview.png)
+
 ## Why not just a linter?
 
 | IaC linter | CloudGraph |
@@ -20,7 +22,7 @@ A path is **conditional**. CloudGraph never claims that an application can actua
 
 - **Import** Docker Compose, Kubernetes YAML (multi-document, `List`), Terraform plan JSON (`terraform show -json`).
 - **Resource graph** with confidence per edge: `confirmed` (stated in config), `inferred` (label selectors, shared networks, NetworkPolicy evaluation), `conditional` (needs an attacker precondition), `unknown` (never traversed).
-- **41 security rules** (Compose, Kubernetes incl. RBAC, Terraform/AWS), each with positive and negative tests, source line, remediation and — where possible — a machine-applicable fix.
+- **41 security rules** (Compose, Kubernetes incl. RBAC, Terraform/AWS), each with positive and negative tests, source line, remediation and — where possible — a machine-applicable fix. Full list: [docs/RULES.md](docs/RULES.md).
 - **Attack path engine** with prerequisites, a risk score (impact × confidence) and hotspot detection.
 - **What-if remediation**: virtually apply fixes, recompute the graph, export a `git apply`-able patch. Real files are never modified.
 - **Infrastructure diff**: compare two states by relationships, findings and attack paths — not just counts.
@@ -30,9 +32,19 @@ A path is **conditional**. CloudGraph never claims that an application can actua
 
 ## Quick start
 
+Download a binary from the Releases page (Linux, macOS, Windows; single file, no dependencies), or build it:
+
 ```bash
-make build                      # builds the UI and bin/cloudgraph
+make build                      # builds the UI and bin/cloudgraph (needs Go and Node.js)
 ./bin/cloudgraph serve          # http://127.0.0.1:8080
+```
+
+With Docker:
+
+```bash
+docker build -t cloudgraph --build-arg VERSION=dev .
+docker run --rm -p 127.0.0.1:8080:8080 -v cloudgraph-data:/data cloudgraph
+docker run --rm -v "$PWD/infrastructure:/in:ro" cloudgraph scan /in --format sarif
 ```
 
 Or with the CLI only:
@@ -57,7 +69,8 @@ cloudgraph scan <path|demo:NAME>... [--format table|json|sarif|html] [--output F
 cloudgraph simulate <path|demo:NAME>... (--list | --fix ID,ID | --all) [--patch FILE]
 cloudgraph diff <A> <B>
 cloudgraph serve [--addr 127.0.0.1:8080] [--db cloudgraph.db]
-cloudgraph rules
+cloudgraph rules [--format table|markdown]
+cloudgraph version
 ```
 
 ```bash
@@ -78,6 +91,12 @@ Exit codes: `0` ok, `1` a finding at or above `--fail-on`, `2` error.
   with:
     sarif_file: results.sarif
 ```
+
+## Screens
+
+| Graph with a highlighted path and explained edges | What-if: one fix, four chains gone, patch ready |
+| --- | --- |
+| ![Graph](docs/screenshots/graph.png) | ![What-if](docs/screenshots/whatif.png) |
 
 ## How it works
 
@@ -126,7 +145,19 @@ npm --prefix web ci && npm --prefix web run build
 npm --prefix web run test:e2e          # Playwright; set PW_CHANNEL=chrome to use an installed Chrome
 ```
 
-Test strategy: parser unit tests; every rule must fire on a vulnerable example and the hardened project must produce zero findings and zero paths; graph tests for Unknown/NetworkPolicy/RBAC semantics; SARIF structure; "no secret ever appears in any output"; API tests including CSRF and malformed input; end-to-end UI tests.
+Test strategy:
+
+- parser unit tests (line numbers, masking, Terraform references across modules);
+- every rule must fire on a vulnerable example, and the hardened project must produce zero findings and zero paths;
+- graph tests for Unknown / NetworkPolicy / RBAC semantics — no invented connections;
+- the exported patch is applied to the demo files and re-scanned: the result must match the what-if prediction;
+- "no secret ever appears in any output" (JSON, SARIF, HTML, terminal, patches, source viewer);
+- SARIF structure, API tests (CSRF, malformed input, empty collections), Playwright end-to-end tests;
+- robustness: a deterministic mutation test plus `go test ./internal/analyze -run '^$' -fuzz FuzzAnalyze` (self-referencing YAML anchors are a regression case).
+
+`docs/RULES.md` is generated (`cloudgraph rules --format markdown`) and a test fails if it is stale. Screenshots are regenerated with `web/scripts/screenshots.mjs`.
+
+Releases: pushing a `v*` tag builds static binaries for five platforms with checksums (`.github/workflows/release.yml`).
 
 ### REST API
 
@@ -140,6 +171,10 @@ The server has no authentication: keep it on loopback (default). Cross-origin wr
 - Docker Compose: services, networks, ports, volumes, secrets, `depends_on`.
 - Plan JSON contains no line numbers; CloudGraph points to the resource's position in the file and Terraform fixes are described, not auto-patched.
 - Static analysis only: no runtime events, vulnerability data or live cloud state.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
 
 ## Author
 

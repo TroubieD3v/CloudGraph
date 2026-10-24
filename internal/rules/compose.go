@@ -43,7 +43,7 @@ func init() {
 			var out []Draft
 			for _, v := range r.Workload.Volumes {
 				if v.Kind == "socket" {
-					e, ok := c.deleteLines(r.Src.File, v.Line, v.Line)
+					e, ok := c.deleteLines(r.Src.File, v.Span[0], v.Span[1])
 					out = append(out, Draft{Key: v.Source, Line: v.Line, Path: "volumes",
 						Message: fmt.Sprintf("Service %s mounts %s. Anyone controlling this container controls the Docker daemon and therefore the host.", r.Name, v.Source),
 						Fix: newFix("remove_volume", r.ID, "Remove the "+v.Source+" mount from "+r.Name,
@@ -61,7 +61,7 @@ func init() {
 			var out []Draft
 			for _, v := range r.Workload.Volumes {
 				if v.Kind == "bind" && model.RiskyHostPath(v.Source) {
-					e, ok := c.deleteLines(r.Src.File, v.Line, v.Line)
+					e, ok := c.deleteLines(r.Src.File, v.Span[0], v.Span[1])
 					out = append(out, Draft{Key: v.Source, Line: v.Line, Path: "volumes",
 						Message: fmt.Sprintf("Service %s bind-mounts host path %s.", r.Name, v.Source),
 						Fix: newFix("remove_volume", r.ID, "Remove the "+v.Source+" host mount from "+r.Name,
