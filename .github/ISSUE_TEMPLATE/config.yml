@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability in CloudGraph
+    url: https://github.com/TroubieD3v/CloudGraph/security/advisories/new
+    about: Please report vulnerabilities privately.

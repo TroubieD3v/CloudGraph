@@ -38,6 +38,21 @@ jobs:
       - run: npm run test:e2e
         working-directory: web
 
+  docker:
+    # The README's quick start: build the image, then use it as a scanner and as a server.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: docker build -t cloudgraph --build-arg VERSION=ci .
+      - run: docker run --rm cloudgraph version
+      - run: docker run --rm -v "$PWD/examples/insecure-kubernetes:/in:ro" cloudgraph scan /in
+      - name: Server answers with the embedded UI
+        run: |
+          docker run -d --name cg -p 127.0.0.1:8080:8080 cloudgraph
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8080/api/health && break; sleep 1; done
+          curl -fsS http://127.0.0.1:8080/ | grep -q '<div id="root">'
+          docker rm -f cg
+
   scan-examples:
     # Dogfooding: run the CLI the way a user's pipeline would and publish SARIF.
     runs-on: ubuntu-latest

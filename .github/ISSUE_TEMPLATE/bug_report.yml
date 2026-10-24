@@ -1,0 +1,39 @@
+name: Bug report
+description: CloudGraph reports a wrong path or finding, misses one, or crashes
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Security problem in CloudGraph itself (a secret that survives masking, a crash on crafted input)? Please use
+        [private vulnerability reporting](../security/advisories/new) instead of a public issue.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [Import (Compose / Kubernetes / Terraform), Graph / Unknown, Rules, Attack paths, What-if / patch, Diff, Web UI, CLI / SARIF, Docker, Other]
+    validations: { required: true }
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: The path or finding you got and the one you expected (false positive / false negative / crash).
+    validations: { required: true }
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal input
+      description: The smallest configuration that reproduces it. Remove real secrets, hosts and account IDs.
+      render: yaml
+    validations: { required: true }
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: "cloudgraph version"
+    validations: { required: true }
+  - type: dropdown
+    id: run
+    attributes:
+      label: How do you run it
+      options: [Release binary, Docker, Built from source]
