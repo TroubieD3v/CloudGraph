@@ -1,0 +1,77 @@
+# Demo: hardened counterpart of examples/vulnerable-ecommerce.
+services:
+  frontend:
+    image: nginx:1.27.2
+    ports:
+      - "80:8080"
+    user: "10001:10001"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      - backend
+    networks:
+      - public
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  backend:
+    image: acme/shop-backend:3.1.0
+    user: "10001:10001"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      LOG_LEVEL: info
+    networks:
+      - public
+      - internal
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  db:
+    image: postgres:16.4
+    user: "999:999"
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets:
+      - db_password
+    volumes:
+      - shop-data:/var/lib/postgresql/data
+    networks:
+      - internal
+
+  cache:
+    image: redis:7.4.1
+    user: "999:999"
+    networks:
+      - internal
+
+  admin:
+    image: acme/admin-panel:1.4.2
+    user: "10001:10001"
+    ports:
+      - "127.0.0.1:9000:9000"
+    networks:
+      - internal
+
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt
+
+volumes:
+  shop-data: {}
+
+networks:
+  public: {}
+  internal: {}

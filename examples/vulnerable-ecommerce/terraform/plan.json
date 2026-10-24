@@ -1,0 +1,501 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.9.0",
+  "planned_values": {
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_security_group.web",
+          "mode": "managed",
+          "type": "aws_security_group",
+          "name": "web",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "values": {
+            "name": "web-sg",
+            "ingress": [
+              {
+                "from_port": 22,
+                "to_port": 22,
+                "protocol": "tcp",
+                "cidr_blocks": [
+                  "0.0.0.0/0"
+                ],
+                "ipv6_cidr_blocks": [],
+                "description": "ssh"
+              },
+              {
+                "from_port": 443,
+                "to_port": 443,
+                "protocol": "tcp",
+                "cidr_blocks": [
+                  "0.0.0.0/0"
+                ],
+                "ipv6_cidr_blocks": [],
+                "description": "https"
+              }
+            ]
+          },
+          "sensitive_values": {
+            "ingress": [
+              {},
+              {}
+            ]
+          }
+        },
+        {
+          "address": "aws_security_group.db",
+          "mode": "managed",
+          "type": "aws_security_group",
+          "name": "db",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "values": {
+            "name": "db-sg",
+            "ingress": [
+              {
+                "from_port": 5432,
+                "to_port": 5432,
+                "protocol": "tcp",
+                "cidr_blocks": [
+                  "0.0.0.0/0"
+                ],
+                "ipv6_cidr_blocks": []
+              }
+            ]
+          },
+          "sensitive_values": {
+            "ingress": [
+              {}
+            ]
+          }
+        },
+        {
+          "address": "aws_iam_role.app",
+          "mode": "managed",
+          "type": "aws_iam_role",
+          "name": "app",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "values": {
+            "name": "app-role",
+            "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ec2.amazonaws.com\"}, \"Action\": \"sts:AssumeRole\"}]}"
+          },
+          "sensitive_values": {}
+        },
+        {
+          "address": "aws_iam_policy.app",
+          "mode": "managed",
+          "type": "aws_iam_policy",
+          "name": "app",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "values": {
+            "name": "app-policy",
+            "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"*\", \"Resource\": \"*\"}]}"
+          },
+          "sensitive_values": {}
+        },
+        {
+          "address": "aws_iam_role_policy_attachment.app",
+          "mode": "managed",
+          "type": "aws_iam_role_policy_attachment",
+          "name": "app",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "values": {
+            "policy_arn": null
+          },
+          "sensitive_values": {}
+        },
+        {
+          "address": "aws_iam_instance_profile.app",
+          "mode": "managed",
+          "type": "aws_iam_instance_profile",
+          "name": "app",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "values": {
+            "name": "app-profile"
+          },
+          "sensitive_values": {}
+        },
+        {
+          "address": "aws_instance.app",
+          "mode": "managed",
+          "type": "aws_instance",
+          "name": "app",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "values": {
+            "ami": "ami-0123456789abcdef0",
+            "instance_type": "t3.medium",
+            "associate_public_ip_address": true,
+            "metadata_options": [
+              {
+                "http_endpoint": "enabled",
+                "http_tokens": "optional"
+              }
+            ],
+            "user_data": "#!/bin/bash\nexport DB_PASSWORD=demo-only-password\n",
+            "root_block_device": [
+              {
+                "encrypted": false,
+                "volume_size": 30
+              }
+            ],
+            "tags": {
+              "Name": "app"
+            }
+          },
+          "sensitive_values": {
+            "metadata_options": [
+              {}
+            ],
+            "root_block_device": [
+              {}
+            ]
+          }
+        },
+        {
+          "address": "aws_db_instance.orders",
+          "mode": "managed",
+          "type": "aws_db_instance",
+          "name": "orders",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "values": {
+            "identifier": "orders",
+            "engine": "postgres",
+            "instance_class": "db.t3.medium",
+            "port": 5432,
+            "username": "orders",
+            "password": "demo-only-password",
+            "publicly_accessible": true,
+            "storage_encrypted": false
+          },
+          "sensitive_values": {
+            "password": true
+          }
+        },
+        {
+          "address": "aws_s3_bucket.exports",
+          "mode": "managed",
+          "type": "aws_s3_bucket",
+          "name": "exports",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "values": {
+            "bucket": "acme-shop-exports",
+            "acl": "public-read",
+            "tags": {
+              "DataClassification": "confidential"
+            }
+          },
+          "sensitive_values": {}
+        }
+      ]
+    }
+  },
+  "resource_changes": [
+    {
+      "address": "aws_security_group.web",
+      "type": "aws_security_group",
+      "name": "web",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "name": "web-sg",
+          "ingress": [
+            {
+              "from_port": 22,
+              "to_port": 22,
+              "protocol": "tcp",
+              "cidr_blocks": [
+                "0.0.0.0/0"
+              ],
+              "ipv6_cidr_blocks": [],
+              "description": "ssh"
+            },
+            {
+              "from_port": 443,
+              "to_port": 443,
+              "protocol": "tcp",
+              "cidr_blocks": [
+                "0.0.0.0/0"
+              ],
+              "ipv6_cidr_blocks": [],
+              "description": "https"
+            }
+          ]
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_security_group.db",
+      "type": "aws_security_group",
+      "name": "db",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "name": "db-sg",
+          "ingress": [
+            {
+              "from_port": 5432,
+              "to_port": 5432,
+              "protocol": "tcp",
+              "cidr_blocks": [
+                "0.0.0.0/0"
+              ],
+              "ipv6_cidr_blocks": []
+            }
+          ]
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_iam_role.app",
+      "type": "aws_iam_role",
+      "name": "app",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "name": "app-role",
+          "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ec2.amazonaws.com\"}, \"Action\": \"sts:AssumeRole\"}]}"
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_iam_policy.app",
+      "type": "aws_iam_policy",
+      "name": "app",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "name": "app-policy",
+          "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"*\", \"Resource\": \"*\"}]}"
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_iam_role_policy_attachment.app",
+      "type": "aws_iam_role_policy_attachment",
+      "name": "app",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "policy_arn": null
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_iam_instance_profile.app",
+      "type": "aws_iam_instance_profile",
+      "name": "app",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "name": "app-profile"
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_instance.app",
+      "type": "aws_instance",
+      "name": "app",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "ami": "ami-0123456789abcdef0",
+          "instance_type": "t3.medium",
+          "associate_public_ip_address": true,
+          "metadata_options": [
+            {
+              "http_endpoint": "enabled",
+              "http_tokens": "optional"
+            }
+          ],
+          "user_data": "#!/bin/bash\nexport DB_PASSWORD=demo-only-password\n",
+          "root_block_device": [
+            {
+              "encrypted": false,
+              "volume_size": 30
+            }
+          ],
+          "tags": {
+            "Name": "app"
+          }
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_db_instance.orders",
+      "type": "aws_db_instance",
+      "name": "orders",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "identifier": "orders",
+          "engine": "postgres",
+          "instance_class": "db.t3.medium",
+          "port": 5432,
+          "username": "orders",
+          "password": "demo-only-password",
+          "publicly_accessible": true,
+          "storage_encrypted": false
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_s3_bucket.exports",
+      "type": "aws_s3_bucket",
+      "name": "exports",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "bucket": "acme-shop-exports",
+          "acl": "public-read",
+          "tags": {
+            "DataClassification": "confidential"
+          }
+        },
+        "after_unknown": {}
+      }
+    }
+  ],
+  "configuration": {
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_security_group.web",
+          "mode": "managed",
+          "type": "aws_security_group",
+          "name": "web",
+          "expressions": {}
+        },
+        {
+          "address": "aws_security_group.db",
+          "mode": "managed",
+          "type": "aws_security_group",
+          "name": "db",
+          "expressions": {}
+        },
+        {
+          "address": "aws_iam_role.app",
+          "mode": "managed",
+          "type": "aws_iam_role",
+          "name": "app",
+          "expressions": {}
+        },
+        {
+          "address": "aws_iam_policy.app",
+          "mode": "managed",
+          "type": "aws_iam_policy",
+          "name": "app",
+          "expressions": {}
+        },
+        {
+          "address": "aws_iam_role_policy_attachment.app",
+          "mode": "managed",
+          "type": "aws_iam_role_policy_attachment",
+          "name": "app",
+          "expressions": {
+            "role": {
+              "references": [
+                "aws_iam_role.app.name",
+                "aws_iam_role.app"
+              ]
+            },
+            "policy_arn": {
+              "references": [
+                "aws_iam_policy.app.arn",
+                "aws_iam_policy.app"
+              ]
+            }
+          }
+        },
+        {
+          "address": "aws_iam_instance_profile.app",
+          "mode": "managed",
+          "type": "aws_iam_instance_profile",
+          "name": "app",
+          "expressions": {
+            "role": {
+              "references": [
+                "aws_iam_role.app.name",
+                "aws_iam_role.app"
+              ]
+            }
+          }
+        },
+        {
+          "address": "aws_instance.app",
+          "mode": "managed",
+          "type": "aws_instance",
+          "name": "app",
+          "expressions": {
+            "vpc_security_group_ids": {
+              "references": [
+                "aws_security_group.web.id",
+                "aws_security_group.web"
+              ]
+            },
+            "iam_instance_profile": {
+              "references": [
+                "aws_iam_instance_profile.app.name",
+                "aws_iam_instance_profile.app"
+              ]
+            }
+          }
+        },
+        {
+          "address": "aws_db_instance.orders",
+          "mode": "managed",
+          "type": "aws_db_instance",
+          "name": "orders",
+          "expressions": {
+            "vpc_security_group_ids": {
+              "references": [
+                "aws_security_group.db.id",
+                "aws_security_group.db"
+              ]
+            }
+          }
+        },
+        {
+          "address": "aws_s3_bucket.exports",
+          "mode": "managed",
+          "type": "aws_s3_bucket",
+          "name": "exports",
+          "expressions": {}
+        }
+      ]
+    }
+  }
+}

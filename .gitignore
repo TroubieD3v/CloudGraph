@@ -1,0 +1,19 @@
+# build output
+/bin/
+/cloudgraph
+/cloudgraph.exe
+*.db
+*.db-journal
+
+# web
+/web/node_modules/
+/web/test-results/
+/web/playwright-report/
+/internal/ui/dist/*
+!/internal/ui/dist/.gitkeep
+
+# editors / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

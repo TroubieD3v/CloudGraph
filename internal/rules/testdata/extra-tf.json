@@ -1,0 +1,33 @@
+{
+  "format_version": "1.2",
+  "planned_values": {
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_iam_policy.deploy",
+          "mode": "managed",
+          "type": "aws_iam_policy",
+          "name": "deploy",
+          "values": {
+            "name": "deploy",
+            "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"iam:PassRole\", \"ec2:RunInstances\"], \"Resource\": \"*\"}]}"
+          },
+          "sensitive_values": {}
+        }
+      ]
+    }
+  },
+  "configuration": {
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_iam_policy.deploy",
+          "mode": "managed",
+          "type": "aws_iam_policy",
+          "name": "deploy",
+          "expressions": {}
+        }
+      ]
+    }
+  }
+}

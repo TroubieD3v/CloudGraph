@@ -1,0 +1,58 @@
+# Demo: deliberately vulnerable e-commerce stack. DO NOT deploy.
+# All credentials below are fictitious.
+services:
+  frontend:
+    image: nginx:latest
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - public
+
+  backend:
+    image: acme/shop-backend:latest
+    privileged: true
+    cap_add:
+      - SYS_ADMIN
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./uploads:/srv/uploads
+    environment:
+      DATABASE_URL: postgres://shop:demo-password-123@db:5432/shop
+      JWT_SECRET: not-a-real-secret
+      LOG_LEVEL: info
+    networks:
+      - public
+      - internal
+
+  db:
+    image: postgres:latest
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: admin123
+    volumes:
+      - /srv/shop-data:/var/lib/postgresql/data
+    networks:
+      - internal
+
+  cache:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    networks:
+      - internal
+
+  admin:
+    image: acme/admin-panel:1.4.2
+    network_mode: host
+    pid: host
+    volumes:
+      - /:/host
+    security_opt:
+      - seccomp:unconfined
+
+networks:
+  public: {}
+  internal: {}
