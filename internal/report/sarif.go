@@ -4,6 +4,7 @@ package report
 import (
 	"encoding/json"
 	"io"
+	"strings"
 
 	"github.com/TroubieD3v/cloudgraph/internal/model"
 	"github.com/TroubieD3v/cloudgraph/internal/rules"
@@ -19,8 +20,21 @@ type sarifLog struct {
 }
 
 type sarifRun struct {
-	Tool    sarifTool     `json:"tool"`
-	Results []sarifResult `json:"results"`
+	Tool        sarifTool         `json:"tool"`
+	Invocations []sarifInvocation `json:"invocations"`
+	Results     []sarifResult     `json:"results"`
+	Properties  map[string]any    `json:"properties,omitempty"`
+}
+
+// sarifInvocation carries notices about limits reached during the path search.
+type sarifInvocation struct {
+	ExecutionSuccessful bool                `json:"executionSuccessful"`
+	Notifications       []sarifNotification `json:"toolExecutionNotifications,omitempty"`
+}
+
+type sarifNotification struct {
+	Level   string    `json:"level"`
+	Message sarifText `json:"message"`
 }
 
 type sarifTool struct {
@@ -174,7 +188,12 @@ func SARIF(w io.Writer, a *model.Analysis) error {
 	log := sarifLog{
 		Schema:  "https://json.schemastore.org/sarif-2.1.0.json",
 		Version: "2.1.0",
-		Runs:    []sarifRun{{Tool: sarifTool{Driver: driver}, Results: res}},
+		Runs: []sarifRun{{
+			Tool:        sarifTool{Driver: driver},
+			Invocations: []sarifInvocation{invocation(a.PathSearch)},
+			Results:     res,
+			Properties:  map[string]any{"pathSearch": a.PathSearch},
+		}},
 	}
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
@@ -184,4 +203,17 @@ func SARIF(w io.Writer, a *model.Analysis) error {
 func itoa(n int) string {
 	b, _ := json.Marshal(n)
 	return string(b)
+}
+
+// invocation reports truncation as warnings and scope limits as notes.
+func invocation(s model.PathSearch) sarifInvocation {
+	inv := sarifInvocation{ExecutionSuccessful: true}
+	for _, n := range s.Notices {
+		level := "note"
+		if strings.HasPrefix(n, "Incomplete") {
+			level = "warning"
+		}
+		inv.Notifications = append(inv.Notifications, sarifNotification{Level: level, Message: sarifText{n}})
+	}
+	return inv
 }

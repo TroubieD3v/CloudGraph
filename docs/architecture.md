@@ -32,9 +32,14 @@ files ──► parse ──► inventory ──► graph ──► rules ──
 
 ## Paths
 
-Depth-first search from the Internet over attack edges, never over Unknown, stopping at sensitive nodes, with at most
-one network pivot. The best candidate per (first compromised resource, last hop, target) is kept. Score = target
-weight × confidence factor (confirmed 1.0, inferred 0.92, conditional 0.85), minus a small penalty for long paths.
+Depth-first search from the Internet over attack edges, never over Unknown, stopping at sensitive nodes. The search
+is bounded by `model.SearchLimits` (depth, candidate count, network pivots per path); `paths.FindWith` returns a
+`PathSearch` record with the limits, how often each was reached and whether the result is complete. Depth and
+candidate limits make the result incomplete; the pivot limit is a scope choice and is only reported as a note.
+
+The best candidate per (first compromised resource, last hop, target) is kept: highest weakest-step confidence first,
+then fewest unconfirmed steps, then the shortest route. Score = target weight × confidence factor (confirmed 1.0,
+inferred 0.92, conditional 0.85), minus a small penalty for long paths.
 
 ## What-if and patches
 

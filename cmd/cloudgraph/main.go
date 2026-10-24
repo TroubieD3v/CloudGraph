@@ -22,16 +22,22 @@ var version = "0.1.0"
 const usage = `CloudGraph — offline infrastructure attack path analysis
 
 Usage:
-  cloudgraph scan <path|demo:NAME>... [--format table|json|sarif|html] [--output FILE] [--fail-on SEVERITY]
-  cloudgraph simulate <path|demo:NAME>... (--list | --fix ID,ID | --all) [--patch FILE]
-  cloudgraph diff <A> <B>
-  cloudgraph serve [--addr 127.0.0.1:8080] [--db cloudgraph.db]
+  cloudgraph scan <path|demo:NAME>... [--format table|json|sarif|html] [--output FILE]
+                  [--fail-on SEVERITY] [--fail-incomplete] [search limits]
+  cloudgraph simulate <path|demo:NAME>... (--list | --fix ID,ID | --all) [--patch FILE] [search limits]
+  cloudgraph diff <A> <B> [search limits]
+  cloudgraph serve [--addr 127.0.0.1:8080] [--db cloudgraph.db] [search limits]
   cloudgraph rules [--format table|markdown]
   cloudgraph demos
   cloudgraph version
 
 A path is a file or directory of Docker Compose, Kubernetes YAML or Terraform
 plan JSON (terraform show -json plan.out). "demo:NAME" selects a bundled project.
+
+Search limits (reports say when one was reached):
+  --max-depth N    longest attack path explored, in edges (default 10, max 20)
+  --max-paths N    candidate paths collected before stopping (default 20000)
+  --max-pivots N   network pivots allowed in one path (default 1, max 3)
 `
 
 func main() {
@@ -113,12 +119,27 @@ func load(inputs []string) (string, []parse.File, error) {
 	return strings.Join(names, " + "), files, nil
 }
 
-func analyseInputs(inputs []string) (*model.Analysis, *parse.Inventory, error) {
+func analyseInputs(inputs []string, lim *model.SearchLimits) (*model.Analysis, *parse.Inventory, error) {
 	name, files, err := load(inputs)
 	if err != nil {
 		return nil, nil, err
 	}
-	return analyze.Run(name, files)
+	return analyze.RunWith(name, files, *lim)
+}
+
+// searchFlags registers the path search limits on a command.
+func searchFlags(fs *flag.FlagSet) *model.SearchLimits {
+	lim := model.DefaultSearchLimits()
+	fs.IntVar(&lim.MaxDepth, "max-depth", lim.MaxDepth, "longest attack path explored, in edges")
+	fs.IntVar(&lim.MaxCandidates, "max-paths", lim.MaxCandidates, "candidate paths collected before the search stops")
+	fs.IntVar(&lim.MaxPivots, "max-pivots", lim.MaxPivots, "network pivots allowed in one path")
+	return &lim
+}
+
+func printNotices(a *model.Analysis) {
+	for _, n := range a.PathSearch.Notices {
+		fmt.Fprintln(os.Stderr, "cloudgraph:", n)
+	}
 }
 
 func openOut(path string) (io.Writer, func(), error) {
@@ -137,11 +158,13 @@ func cmdScan(args []string) (int, error) {
 	format := fs.String("format", "table", "table, json, sarif or html")
 	output := fs.String("output", "", "write to FILE instead of stdout")
 	failOn := fs.String("fail-on", "", "exit 1 if a finding of at least this severity exists (critical, high, medium, low)")
+	failIncomplete := fs.Bool("fail-incomplete", false, "exit 1 if a search limit cut the attack path search short")
+	lim := searchFlags(fs)
 	inputs, err := parseInterspersed(fs, args)
 	if err != nil {
 		return 2, err
 	}
-	a, _, err := analyseInputs(inputs)
+	a, _, err := analyseInputs(inputs, lim)
 	if err != nil {
 		return 2, err
 	}
@@ -168,6 +191,10 @@ func cmdScan(args []string) (int, error) {
 	if *output != "" && *output != "-" {
 		fmt.Fprintf(os.Stderr, "cloudgraph: %d findings (%s), %d risk paths → %s\n",
 			a.Summary.Findings, strings.Join(report.SeverityCounts(a), ", "), a.Summary.Paths, *output)
+		printNotices(a)
+	}
+	if *failIncomplete && !a.PathSearch.Complete {
+		return 1, nil
 	}
 	if *failOn != "" {
 		min := model.SeverityRank(*failOn)
@@ -189,14 +216,16 @@ func cmdSimulate(args []string) error {
 	fixArg := fs.String("fix", "", "comma-separated fix IDs to apply virtually")
 	all := fs.Bool("all", false, "apply every available fix")
 	patch := fs.String("patch", "", "write the proposed patch to FILE")
+	lim := searchFlags(fs)
 	inputs, err := parseInterspersed(fs, args)
 	if err != nil {
 		return err
 	}
-	a, inv, err := analyseInputs(inputs)
+	a, inv, err := analyseInputs(inputs, lim)
 	if err != nil {
 		return err
 	}
+	printNotices(a)
 	if *list || (*fixArg == "" && !*all) {
 		fmt.Printf("%d paths, %d findings. Available fixes:\n\n", len(a.Paths), len(a.Findings))
 		for _, f := range a.Fixes {
@@ -249,17 +278,25 @@ func cmdSimulate(args []string) error {
 }
 
 func cmdDiff(args []string) error {
-	if len(args) != 2 {
+	fs := flag.NewFlagSet("diff", flag.ContinueOnError)
+	lim := searchFlags(fs)
+	inputs, err := parseInterspersed(fs, args)
+	if err != nil {
+		return err
+	}
+	if len(inputs) != 2 {
 		return fmt.Errorf("diff needs exactly two inputs")
 	}
-	a, _, err := analyseInputs([]string{args[0]})
+	a, _, err := analyseInputs([]string{inputs[0]}, lim)
 	if err != nil {
 		return err
 	}
-	b, _, err := analyseInputs([]string{args[1]})
+	b, _, err := analyseInputs([]string{inputs[1]}, lim)
 	if err != nil {
 		return err
 	}
+	printNotices(a)
+	printNotices(b)
 	d := analyze.Diff(a, b)
 	fmt.Printf("A: %s\nB: %s\n\n", a.Name, b.Name)
 	for _, k := range []string{"resources", "edges", "findings", "paths", "unknowns"} {

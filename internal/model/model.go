@@ -3,7 +3,10 @@
 // Findings and the path engine produces Paths.
 package model
 
-import "sort"
+import (
+	"fmt"
+	"sort"
+)
 
 // Source points back to the exact place in an input file a fact came from.
 type Source struct {
@@ -400,6 +403,78 @@ type UnknownNote struct {
 	Src        Source `json:"source"`
 }
 
+// SearchLimits bound the attack path search.
+type SearchLimits struct {
+	// MaxDepth is the longest path, in edges, that is explored.
+	MaxDepth int `json:"maxDepth"`
+	// MaxCandidates caps the number of raw candidate paths collected.
+	MaxCandidates int `json:"maxCandidates"`
+	// MaxPivots is the number of network pivots (lateral hops) one path may use.
+	MaxPivots int `json:"maxPivots"`
+}
+
+// Limits on what callers may request; they keep the search bounded on
+// untrusted input.
+const (
+	MaxDepthLimit      = 20
+	MaxCandidatesLimit = 200000
+	MaxPivotsLimit     = 3
+)
+
+// DefaultSearchLimits are used when nothing else is configured.
+func DefaultSearchLimits() SearchLimits {
+	return SearchLimits{MaxDepth: 10, MaxCandidates: 20000, MaxPivots: 1}
+}
+
+// Validate rejects limits outside the supported ranges.
+func (l SearchLimits) Validate() error {
+	switch {
+	case l.MaxDepth < 1 || l.MaxDepth > MaxDepthLimit:
+		return fmt.Errorf("maxDepth must be between 1 and %d", MaxDepthLimit)
+	case l.MaxCandidates < 1 || l.MaxCandidates > MaxCandidatesLimit:
+		return fmt.Errorf("maxCandidates must be between 1 and %d", MaxCandidatesLimit)
+	case l.MaxPivots < 0 || l.MaxPivots > MaxPivotsLimit:
+		return fmt.Errorf("maxPivots must be between 0 and %d", MaxPivotsLimit)
+	}
+	return nil
+}
+
+// PathSearch records how the search went, so a report can say when it was cut short.
+type PathSearch struct {
+	Limits     SearchLimits `json:"limits"`
+	Candidates int          `json:"candidates"`
+	// DepthLimitHits counts routes that still had unexplored attack edges when
+	// they reached MaxDepth.
+	DepthLimitHits int `json:"depthLimitHits"`
+	// CandidateLimitHit is set when MaxCandidates stopped the search early.
+	CandidateLimitHit bool `json:"candidateLimitHit"`
+	// PivotLimitHits counts network pivots not taken because of MaxPivots. This
+	// is a deliberate scope choice rather than a truncation.
+	PivotLimitHits int `json:"pivotLimitHits"`
+	// Complete is false when a depth or candidate limit cut the search short.
+	Complete bool `json:"complete"`
+	// Notices explains, in plain language, every limit that was reached.
+	Notices []string `json:"notices,omitempty"`
+}
+
+// BuildNotices returns human-readable explanations of the limits that were reached.
+func (s PathSearch) BuildNotices() []string {
+	var out []string
+	if s.CandidateLimitHit {
+		out = append(out, fmt.Sprintf("Incomplete analysis: the path search stopped after %d candidate paths (limit %d). Some attack paths may be missing; raise --max-paths.",
+			s.Candidates, s.Limits.MaxCandidates))
+	}
+	if s.DepthLimitHits > 0 {
+		out = append(out, fmt.Sprintf("Incomplete analysis: %d route(s) reached the depth limit of %d edges and were not followed further. Raise --max-depth to explore them.",
+			s.DepthLimitHits, s.Limits.MaxDepth))
+	}
+	if s.PivotLimitHits > 0 {
+		out = append(out, fmt.Sprintf("Scope: %d network pivot(s) beyond the limit of %d per path were not followed (chains through ordinary application tiers are not reported). Raise --max-pivots to include them.",
+			s.PivotLimitHits, s.Limits.MaxPivots))
+	}
+	return out
+}
+
 // Hotspot is a resource that participates in several attack paths; fixing it
 // removes all of them at once.
 type Hotspot struct {
@@ -430,7 +505,9 @@ type Analysis struct {
 	Unknowns  []*UnknownNote `json:"unknowns"`
 	Fixes     []*Fix         `json:"fixes"`
 	Hotspots  []*Hotspot     `json:"hotspots"`
-	Warnings  []string       `json:"warnings,omitempty"`
+	// PathSearch says which limits applied and whether the search was complete.
+	PathSearch PathSearch `json:"pathSearch"`
+	Warnings   []string   `json:"warnings,omitempty"`
 	// Sources holds the input files line by line with secrets masked, so the
 	// UI can show the exact configuration a finding or edge came from.
 	Sources map[string][]string `json:"sources,omitempty"`

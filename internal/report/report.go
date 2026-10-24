@@ -23,6 +23,12 @@ func Text(w io.Writer, a *model.Analysis) {
 	s := a.Summary
 	fmt.Fprintf(w, "CloudGraph — %s\n", a.Name)
 	fmt.Fprintf(w, "Resources: %d   Edges: %d   Findings: %d   Risk paths: %d   Unknown: %d\n\n", s.Resources, s.Edges, s.Findings, s.Paths, s.Unknowns)
+	for _, n := range a.PathSearch.Notices {
+		fmt.Fprintf(w, "! %s\n", n)
+	}
+	if len(a.PathSearch.Notices) > 0 {
+		fmt.Fprintln(w)
+	}
 
 	if len(a.Paths) > 0 {
 		fmt.Fprintln(w, "POTENTIAL ATTACK PATHS (static analysis; not proof of exploitation)")
@@ -108,6 +114,7 @@ code{font-family:ui-monospace,Consolas,monospace;color:var(--mut)}ol{margin:8px 
 <div class="stat"><b>{{.A.Summary.Paths}}</b><span>Risk paths</span></div>
 <div class="stat"><b>{{.A.Summary.Unknowns}}</b><span>Unknown</span></div></div>
 
+{{range .A.PathSearch.Notices}}<div class="card" style="border-color:#5b4420;color:#e8c88f">{{.}}</div>{{end}}
 <h2>Potential attack paths</h2>
 <p class="note">A path shows how separate weaknesses could be chained. It is conditional: connections do not prove that the exposed application can actually be compromised.</p>
 {{range .A.Paths}}<div class="card"><span class="badge {{.Severity}}">{{upper .Severity}} {{.Score}}</span> <b>{{.Title}}</b> <span class="note">· {{.Confidence}}</span>

@@ -60,7 +60,24 @@ Terraform plan JSON, строит направленный граф ресурс
 
 Путь попадает в отчёт, только если он начинается в точке входа, доступной из Интернета, заканчивается на
 чувствительной цели и содержит не больше одного сетевого «прыжка». Поэтому обычная архитектура frontend → backend →
-база данных не считается риском.
+база данных не считается риском. Если к одной цели через одни и те же ресурсы ведут несколько маршрутов, CloudGraph
+оставляет самый обоснованный: сначала тот, у которого самый слабый шаг сильнее, затем тот, где меньше неподтверждённых
+шагов, и только потом более короткий. Короткий маршрут с лишним допущением не вытесняет более длинный, но
+подтверждённый конфигурацией.
+
+### Ограничения поиска
+
+| Ограничение | По умолчанию | Флаг / поле API | Что происходит при достижении |
+|---|---|---|---|
+| Глубина пути | 10 рёбер (максимум 20) | `--max-depth` / `maxDepth` | Предупреждение **Incomplete analysis**: часть маршрутов не прослежена до конца |
+| Кандидаты путей | 20 000 (максимум 200 000) | `--max-paths` / `maxCandidates` | Предупреждение **Incomplete analysis**: поиск остановлен досрочно |
+| Сетевые «прыжки» в пути | 1 (максимум 3) | `--max-pivots` / `maxPivots` | Пометка об области анализа: цепочки с несколькими прыжками сознательно не прослеживаются |
+
+Ограничения и их итог сохраняются вместе с каждым анализом и показываются в терминале, HTML-отчёте, веб-интерфейсе и
+SARIF (`invocations[].toolExecutionNotifications`, а также `runs[].properties.pathSearch`). Симуляция what-if
+использует ограничения исходного анализа, поэтому никогда не «устраняет» путь, который просто не искали.
+`--fail-incomplete` превращает неполный поиск в код выхода 1 для пайплайнов, которые не должны проходить на частичном
+результате.
 
 ## Как пользоваться
 
@@ -75,7 +92,8 @@ Terraform plan JSON, строит направленный граф ресурс
 
 ## Быстрый старт (Docker)
 
-Нужен Docker.
+Удобнее один бинарник? Скачайте его для Linux, macOS или Windows на странице
+[Releases](https://github.com/TroubieD3v/CloudGraph/releases/latest) и запустите `cloudgraph serve`. С Docker:
 
 ```bash
 git clone https://github.com/TroubieD3v/CloudGraph.git
@@ -125,7 +143,8 @@ cloudgraph diff ./before ./after
 cloudgraph scan demo:insecure-kubernetes --format html --output report.html
 ```
 
-Коды выхода: `0` всё в порядке, `1` есть находка уровня `--fail-on` или выше, `2` ошибка. GitHub Code Scanning
+Коды выхода: `0` всё в порядке, `1` есть находка уровня `--fail-on` или выше (или поиск неполный при
+`--fail-incomplete`), `2` ошибка. GitHub Code Scanning
 показывает находки из SARIF, а пути атаки — как code flows:
 
 ```yaml
@@ -136,7 +155,9 @@ cloudgraph scan demo:insecure-kubernetes --format html --output report.html
     sarif_file: results.sarif
 ```
 
-Именно так работает задача `scan-examples` в [ci.yml](.github/workflows/ci.yml).
+Именно так задача `scan-examples` в [ci.yml](.github/workflows/ci.yml) проверяет защищённый проект, а затем сканирует
+намеренно уязвимые: проверка обязана упасть с кодом 1, а SARIF — пройти валидацию по схеме SARIF 2.1.0 и содержать
+ожидаемые находки и пути атаки ([scripts/check_sarif.py](scripts/check_sarif.py)).
 
 ## Безопасность
 
@@ -152,9 +173,9 @@ cloudgraph scan demo:insecure-kubernetes --format html --output report.html
 ## Тесты
 
 ```bash
-go vet ./... && go test ./...           # 51 тестовая функция: импорт, семантика графа, правила, пути, what-if, API
+go vet ./... && go test ./...           # 64 тестовые функции: импорт, семантика графа, правила, пути и лимиты, what-if, API, CLI
 npm --prefix web run build
-npm --prefix web run test:e2e           # 13 тестов Playwright; PW_CHANNEL=chrome использует установленный Chrome
+npm --prefix web run test:e2e           # 14 тестов Playwright; PW_CHANNEL=chrome использует установленный Chrome
 go test ./internal/analyze -run '^$' -fuzz FuzzAnalyze -fuzztime 60s
 ```
 

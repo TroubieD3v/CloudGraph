@@ -24,12 +24,21 @@ const maxBody = 16 << 20 // 16 MiB of uploaded configuration
 
 // Server wires the HTTP routes.
 type Server struct {
-	store *store.Store
-	ui    fs.FS
+	store  *store.Store
+	ui     fs.FS
+	limits model.SearchLimits
 }
 
 // New builds a Server. ui may be nil for API-only operation.
-func New(st *store.Store, ui fs.FS) *Server { return &Server{store: st, ui: ui} }
+func New(st *store.Store, ui fs.FS) *Server {
+	return &Server{store: st, ui: ui, limits: model.DefaultSearchLimits()}
+}
+
+// WithLimits sets the default path search limits for new analyses.
+func (s *Server) WithLimits(l model.SearchLimits) *Server {
+	s.limits = l
+	return s
+}
 
 // Handler returns the root handler.
 func (s *Server) Handler() http.Handler {
@@ -128,17 +137,27 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request) {
 }
 
 type createReq struct {
-	Name  string `json:"name"`
-	Demo  string `json:"demo"`
-	Files []struct {
+	Name string `json:"name"`
+	Demo string `json:"demo"`
+	// Limits overrides individual search limits; omitted fields keep the server defaults.
+	Limits *model.SearchLimits `json:"limits"`
+	Files  []struct {
 		Name    string `json:"name"`
 		Content string `json:"content"`
 	} `json:"files"`
 }
 
 func (s *Server) create(w http.ResponseWriter, r *http.Request) {
-	var req createReq
+	lim := s.limits
+	req := createReq{Limits: &lim}
 	if !readJSON(w, r, &req) {
+		return
+	}
+	if req.Limits == nil {
+		req.Limits = &lim
+	}
+	if err := req.Limits.Validate(); err != nil {
+		fail(w, 400, err)
 		return
 	}
 	var files []parse.File
@@ -169,7 +188,7 @@ func (s *Server) create(w http.ResponseWriter, r *http.Request) {
 		fail(w, 400, errors.New("provide either \"demo\" or \"files\""))
 		return
 	}
-	a, _, err := analyze.Run(name, files)
+	a, _, err := analyze.RunWith(name, files, *req.Limits)
 	if err != nil {
 		fail(w, 422, err)
 		return

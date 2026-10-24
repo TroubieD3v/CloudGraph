@@ -71,3 +71,29 @@ jobs:
         with:
           sarif_file: results.sarif
           category: cloudgraph
+
+      # The hardened project only proves the gate stays green. The intentionally
+      # vulnerable projects prove it turns red and that the SARIF is complete and
+      # schema-valid. Kept as an artifact, not uploaded to code scanning, so demo
+      # findings do not show up as alerts of this repository.
+      - name: Vulnerable config fails the gate
+        run: |
+          set +e
+          go run ./cmd/cloudgraph scan ./examples/vulnerable-ecommerce ./examples/insecure-kubernetes \
+            --format sarif --output vulnerable.sarif --fail-on high
+          code=$?
+          set -e
+          if [ "$code" -ne 1 ]; then echo "expected exit code 1 (findings at or above high), got $code"; exit 1; fi
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Vulnerable SARIF is schema-valid and complete
+        run: |
+          pip install --quiet jsonschema
+          curl -fsSL -o sarif-schema.json https://json.schemastore.org/sarif-2.1.0.json
+          python scripts/check_sarif.py vulnerable.sarif sarif-schema.json --min-findings 50 --min-paths 10
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: vulnerable-sarif
+          path: vulnerable.sarif

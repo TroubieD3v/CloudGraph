@@ -60,6 +60,22 @@ removes four of them, and a diff against the hardened version.*
 
 A path is reported only when it starts at an Internet-reachable entry, ends at a sensitive target and contains at
 most one network pivot, so the normal frontend → backend → database architecture is not reported as a risk.
+When several routes lead through the same resources to the same target, CloudGraph keeps the best supported one:
+the route whose weakest step is strongest wins, then the one with fewer unconfirmed steps, and only then the shorter
+one. A short route that needs an extra assumption never hides a longer route that the configuration confirms.
+
+### Search limits
+
+| Limit | Default | Flag / API field | When it is reached |
+|---|---|---|---|
+| Path depth | 10 edges (max 20) | `--max-depth` / `maxDepth` | **Incomplete analysis** warning: some routes were not followed to the end |
+| Candidate paths | 20 000 (max 200 000) | `--max-paths` / `maxCandidates` | **Incomplete analysis** warning: the search stopped early |
+| Network pivots per path | 1 (max 3) | `--max-pivots` / `maxPivots` | Scope note: multi-pivot chains were deliberately not followed |
+
+The limits and their outcome are recorded with every analysis and shown in the terminal, the HTML report, the
+web UI and SARIF (`invocations[].toolExecutionNotifications`, plus `runs[].properties.pathSearch`). A what-if
+simulation reuses the limits of the analysis it starts from, so it never "resolves" a path it simply did not search.
+`--fail-incomplete` turns a truncated search into exit code 1 for pipelines that must not pass on partial results.
 
 ## Workflow
 
@@ -74,7 +90,8 @@ The interface has six views: Overview, Graph, Findings, What-if, Diff and Unknow
 
 ## Quick start (Docker)
 
-Requires Docker.
+Prefer a single binary? Download it for Linux, macOS or Windows from
+[Releases](https://github.com/TroubieD3v/CloudGraph/releases/latest) and run `cloudgraph serve`. With Docker:
 
 ```bash
 git clone https://github.com/TroubieD3v/CloudGraph.git
@@ -125,8 +142,8 @@ cloudgraph diff ./before ./after
 cloudgraph scan demo:insecure-kubernetes --format html --output report.html
 ```
 
-Exit codes: `0` ok, `1` a finding at or above `--fail-on`, `2` error. GitHub Code Scanning shows the SARIF
-findings and the attack paths as code flows:
+Exit codes: `0` ok, `1` a finding at or above `--fail-on` (or a truncated search with `--fail-incomplete`),
+`2` error. GitHub Code Scanning shows the SARIF findings and the attack paths as code flows:
 
 ```yaml
 - run: cloudgraph scan ./infrastructure --format sarif --output results.sarif --fail-on high
@@ -136,7 +153,9 @@ findings and the attack paths as code flows:
     sarif_file: results.sarif
 ```
 
-The `scan-examples` job in [ci.yml](.github/workflows/ci.yml) runs exactly this.
+The `scan-examples` job in [ci.yml](.github/workflows/ci.yml) runs exactly this on the hardened project, and then
+scans the intentionally vulnerable projects: the gate must fail with exit code 1, and the SARIF must validate against
+the SARIF 2.1.0 schema and contain the expected findings and attack paths ([scripts/check_sarif.py](scripts/check_sarif.py)).
 
 ## Safety
 
@@ -151,9 +170,9 @@ The `scan-examples` job in [ci.yml](.github/workflows/ci.yml) runs exactly this.
 ## Tests
 
 ```bash
-go vet ./... && go test ./...           # 51 test functions: parsers, graph semantics, rules, paths, what-if, API
+go vet ./... && go test ./...           # 64 test functions: parsers, graph semantics, rules, paths and limits, what-if, API, CLI
 npm --prefix web run build
-npm --prefix web run test:e2e           # 13 Playwright tests; PW_CHANNEL=chrome reuses an installed Chrome
+npm --prefix web run test:e2e           # 14 Playwright tests; PW_CHANNEL=chrome reuses an installed Chrome
 go test ./internal/analyze -run '^$' -fuzz FuzzAnalyze -fuzztime 60s
 ```
 

@@ -6,6 +6,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/TroubieD3v/cloudgraph/examples"
+	"github.com/TroubieD3v/cloudgraph/internal/analyze"
+	"github.com/TroubieD3v/cloudgraph/internal/model"
 	"github.com/TroubieD3v/cloudgraph/internal/report"
 	"github.com/TroubieD3v/cloudgraph/internal/testutil"
 )
@@ -119,5 +122,44 @@ func TestHTMLEscapesContent(t *testing.T) {
 	}
 	if strings.Contains(buf.String(), "<script>alert(1)</script>") {
 		t.Error("report HTML must escape resource names")
+	}
+}
+
+func TestSARIFReportsSearchLimits(t *testing.T) {
+	files, _ := examples.Files("insecure-kubernetes")
+	lim := model.DefaultSearchLimits()
+	lim.MaxDepth = 4
+	a, _, err := analyze.RunWith("limited", files, lim)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	if err := report.SARIF(&buf, a); err != nil {
+		t.Fatal(err)
+	}
+	var log struct {
+		Runs []struct {
+			Invocations []struct {
+				Notifications []struct {
+					Level   string                `json:"level"`
+					Message struct{ Text string } `json:"message"`
+				} `json:"toolExecutionNotifications"`
+			} `json:"invocations"`
+		} `json:"runs"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &log); err != nil {
+		t.Fatal(err)
+	}
+	warned := false
+	for _, n := range log.Runs[0].Invocations[0].Notifications {
+		warned = warned || (n.Level == "warning" && strings.Contains(n.Message.Text, "Incomplete"))
+	}
+	if !warned {
+		t.Error("a truncated search must appear as a SARIF warning notification")
+	}
+	var text bytes.Buffer
+	report.Text(&text, a)
+	if !strings.Contains(text.String(), "Incomplete analysis") {
+		t.Error("terminal report must show the truncation")
 	}
 }

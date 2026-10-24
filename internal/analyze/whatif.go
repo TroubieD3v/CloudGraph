@@ -112,7 +112,12 @@ func Simulate(a *model.Analysis, fixIDs []string) (*SimulationResult, error) {
 	}
 	inv.Resources = kept
 
-	after := FromInventory(a.Name+" (what-if)", inv)
+	// Recompute with the limits of the original analysis so both sides compare like for like.
+	lim := a.PathSearch.Limits
+	if lim.Validate() != nil {
+		lim = model.DefaultSearchLimits() // snapshots from before limits were recorded
+	}
+	after := FromInventoryWith(a.Name+" (what-if)", inv, lim)
 	after.Inputs = a.Inputs
 	after.Sources = a.Sources
 

@@ -12,22 +12,30 @@ import (
 	"github.com/TroubieD3v/cloudgraph/internal/model"
 )
 
-const (
-	maxDepth = 10
-	maxRaw   = 20000
-	// maxLateral bounds how many network pivots a single path may contain.
-	// Chains of several pivots through ordinary application tiers are the
-	// intended architecture, not a finding.
-	maxLateral = 1
-)
-
 type raw struct {
 	nodes []string
 	edges []*model.Edge
 }
 
-// Find returns the best attack path per (first compromised resource, target).
+func traversable(e *model.Edge, visited map[string]bool) bool {
+	return e.Attack && e.Confidence != model.Unknown && !visited[e.To]
+}
+
+// Find returns the best attack path per (first compromised resource, last hop,
+// target) using the default limits.
 func Find(g *graph.Graph) []*model.Path {
+	ps, _ := FindWith(g, model.DefaultSearchLimits())
+	return ps
+}
+
+// FindWith searches with explicit limits and reports where they cut the search.
+//
+// MaxPivots bounds how many network pivots a single path may contain: chains of
+// several pivots through ordinary application tiers are the intended
+// architecture, not a finding. MaxDepth and MaxCandidates only keep the search
+// bounded; when they are reached the result is marked incomplete.
+func FindWith(g *graph.Graph, lim model.SearchLimits) ([]*model.Path, model.PathSearch) {
+	stats := model.PathSearch{Limits: lim}
 	var found []raw
 	visited := map[string]bool{graph.InternetID: true}
 	var nodes = []string{graph.InternetID}
@@ -36,15 +44,26 @@ func Find(g *graph.Graph) []*model.Path {
 
 	var dfs func(id string)
 	dfs = func(id string) {
-		if len(found) >= maxRaw || len(edges) >= maxDepth {
+		if len(found) >= lim.MaxCandidates {
+			stats.CandidateLimitHit = true
+			return
+		}
+		if len(edges) >= lim.MaxDepth {
+			for _, e := range g.Out(id) {
+				if traversable(e, visited) {
+					stats.DepthLimitHits++
+					break
+				}
+			}
 			return
 		}
 		for _, e := range g.Out(id) {
-			if !e.Attack || e.Confidence == model.Unknown || visited[e.To] {
+			if !traversable(e, visited) {
 				continue
 			}
 			isLateral := e.Type == "network_reach"
-			if isLateral && lateral >= maxLateral {
+			if isLateral && lateral >= lim.MaxPivots {
+				stats.PivotLimitHits++
 				continue
 			}
 			to := g.Resource(e.To)
@@ -57,7 +76,11 @@ func Find(g *graph.Graph) []*model.Path {
 				lateral++
 			}
 			if to.Sensitive {
-				found = append(found, raw{append([]string(nil), nodes...), append([]*model.Edge(nil), edges...)})
+				if len(found) >= lim.MaxCandidates {
+					stats.CandidateLimitHit = true
+				} else {
+					found = append(found, raw{append([]string(nil), nodes...), append([]*model.Edge(nil), edges...)})
+				}
 			} else {
 				visited[e.To] = true
 				dfs(e.To)
@@ -93,7 +116,10 @@ func Find(g *graph.Graph) []*model.Path {
 	for i, p := range out {
 		p.ID = fmt.Sprintf("path-%d", i+1)
 	}
-	return out
+	stats.Candidates = len(found)
+	stats.Complete = !stats.CandidateLimitHit && stats.DepthLimitHits == 0
+	stats.Notices = stats.BuildNotices()
+	return out, stats
 }
 
 func groupKey(g *graph.Graph, p raw) string {
@@ -122,12 +148,30 @@ func minRank(edges []*model.Edge) int {
 	return m
 }
 
-func better(a, b raw) bool {
-	if len(a.edges) != len(b.edges) {
-		return len(a.edges) < len(b.edges)
+// weakSteps counts the steps that are not confirmed by the configuration.
+func weakSteps(edges []*model.Edge) int {
+	n := 0
+	for _, e := range edges {
+		if e.Confidence != model.Confirmed {
+			n++
+		}
 	}
+	return n
+}
+
+// better decides which of two routes to the same target represents the group.
+// Evidence comes before brevity: a longer route whose weakest step is confirmed
+// beats a shorter one that needs an extra assumption, because the reported path
+// (and its score) should be the one best supported by the configuration.
+func better(a, b raw) bool {
 	if ra, rb := minRank(a.edges), minRank(b.edges); ra != rb {
 		return ra > rb
+	}
+	if wa, wb := weakSteps(a.edges), weakSteps(b.edges); wa != wb {
+		return wa < wb
+	}
+	if len(a.edges) != len(b.edges) {
+		return len(a.edges) < len(b.edges)
 	}
 	return strings.Join(a.nodes, "|") < strings.Join(b.nodes, "|")
 }

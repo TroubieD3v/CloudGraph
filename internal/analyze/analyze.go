@@ -16,24 +16,37 @@ import (
 	"github.com/TroubieD3v/cloudgraph/internal/rules"
 )
 
-// Run imports the files and analyses them.
+// Run imports the files and analyses them with the default search limits.
 func Run(name string, files []parse.File) (*model.Analysis, *parse.Inventory, error) {
+	return RunWith(name, files, model.DefaultSearchLimits())
+}
+
+// RunWith imports the files and analyses them with explicit search limits.
+func RunWith(name string, files []parse.File, lim model.SearchLimits) (*model.Analysis, *parse.Inventory, error) {
+	if err := lim.Validate(); err != nil {
+		return nil, nil, err
+	}
 	inv, err := parse.Parse(files)
 	if err != nil {
 		return nil, nil, err
 	}
-	a := FromInventory(name, inv)
+	a := FromInventoryWith(name, inv, lim)
 	for _, f := range files {
 		a.Inputs = append(a.Inputs, f.Name)
 	}
 	return a, inv, nil
 }
 
-// FromInventory runs graph building, rules and path search.
+// FromInventory runs graph building, rules and path search with default limits.
 func FromInventory(name string, inv *parse.Inventory) *model.Analysis {
+	return FromInventoryWith(name, inv, model.DefaultSearchLimits())
+}
+
+// FromInventoryWith runs graph building, rules and path search.
+func FromInventoryWith(name string, inv *parse.Inventory, lim model.SearchLimits) *model.Analysis {
 	g := graph.Build(inv.Resources)
 	findings, fixes := rules.Run(inv, g)
-	ps := paths.Find(g)
+	ps, search := paths.FindWith(g, lim)
 
 	for _, p := range ps {
 		inPath := map[string]bool{}
@@ -50,17 +63,18 @@ func FromInventory(name string, inv *parse.Inventory) *model.Analysis {
 	now := time.Now().UTC()
 	sum := sha1.Sum([]byte(fmt.Sprintf("%s|%d", name, now.UnixNano())))
 	a := &model.Analysis{
-		ID:        "an-" + hex.EncodeToString(sum[:5]),
-		Name:      name,
-		CreatedAt: now.Format(time.RFC3339),
-		Resources: g.Resources,
-		Edges:     g.Edges,
-		Findings:  findings,
-		Paths:     ps,
-		Unknowns:  g.Unknowns,
-		Fixes:     fixes,
-		Hotspots:  paths.Hotspots(ps),
-		Warnings:  inv.Warnings,
+		ID:         "an-" + hex.EncodeToString(sum[:5]),
+		Name:       name,
+		CreatedAt:  now.Format(time.RFC3339),
+		Resources:  g.Resources,
+		Edges:      g.Edges,
+		Findings:   findings,
+		Paths:      ps,
+		Unknowns:   g.Unknowns,
+		Fixes:      fixes,
+		Hotspots:   paths.Hotspots(ps),
+		PathSearch: search,
+		Warnings:   inv.Warnings,
 	}
 	a.Sources = map[string][]string{}
 	for name, lines := range inv.Files {

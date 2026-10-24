@@ -64,6 +64,23 @@ export function Overview({
       </div>
 
       <h2 className="section">Potential attack paths</h2>
+      {a.pathSearch?.notices?.map((n) =>
+        n.startsWith("Incomplete") ? (
+          <div key={n} className="error" role="alert" data-testid="search-incomplete">
+            {n}
+          </div>
+        ) : (
+          <p key={n} className="note" data-testid="search-scope">
+            {n}
+          </p>
+        ),
+      )}
+      {a.pathSearch && (
+        <p className="note" data-testid="search-limits">
+          Search limits: depth {a.pathSearch.limits.maxDepth} edges · {a.pathSearch.limits.maxPivots} network pivot(s) per path ·{" "}
+          {a.pathSearch.candidates} of max {a.pathSearch.limits.maxCandidates} candidates · {a.pathSearch.complete ? "complete" : "incomplete"}
+        </p>
+      )}
       {a.paths.length === 0 && <div className="card empty">No attack paths found in this configuration.</div>}
       {a.paths.map((p) => (
         <PathCard key={p.id} path={p} onOpen={onOpen} names={names} onSelect={onShowPath} />

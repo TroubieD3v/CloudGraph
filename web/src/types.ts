@@ -114,7 +114,18 @@ export interface Analysis {
   hotspots: { resourceId: string; paths: number }[];
   warnings?: string[];
   sources?: Record<string, string[]>;
+  pathSearch?: PathSearch;
   summary: Summary;
+}
+
+export interface PathSearch {
+  limits: { maxDepth: number; maxCandidates: number; maxPivots: number };
+  candidates: number;
+  depthLimitHits: number;
+  candidateLimitHit: boolean;
+  pivotLimitHits: number;
+  complete: boolean;
+  notices?: string[];
 }
 
 export interface HistoryItem {

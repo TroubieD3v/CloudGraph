@@ -207,3 +207,30 @@ func TestEmptyCollectionsAreArraysNotNull(t *testing.T) {
 		t.Errorf("patch manual must be []: %s", body)
 	}
 }
+
+func TestSearchLimitsPerAnalysis(t *testing.T) {
+	ts := newServer(t)
+	resp, _ := do(t, ts, "POST", "/api/analyses", `{"demo":"insecure-kubernetes","limits":{"maxDepth":99}}`, nil)
+	if resp.StatusCode != 400 {
+		t.Errorf("out-of-range limit must be rejected, got %d", resp.StatusCode)
+	}
+	resp, body := do(t, ts, "POST", "/api/analyses", `{"demo":"insecure-kubernetes","limits":{"maxDepth":4}}`, nil)
+	if resp.StatusCode != 201 {
+		t.Fatalf("create: %d %s", resp.StatusCode, body)
+	}
+	var a model.Analysis
+	_ = json.Unmarshal(body, &a)
+	if a.PathSearch.Limits.MaxDepth != 4 || a.PathSearch.Limits.MaxPivots != 1 || a.PathSearch.Complete {
+		t.Fatalf("partial override must keep other defaults and report truncation: %+v", a.PathSearch)
+	}
+	// What-if must recompute with the same limits, otherwise it would "resolve" paths it simply did not search.
+	resp, body = do(t, ts, "POST", "/api/analyses/"+a.ID+"/simulate", `{"fixes":[]}`, nil)
+	var sim struct {
+		PathsBefore int `json:"pathsBefore"`
+		PathsAfter  int `json:"pathsAfter"`
+	}
+	_ = json.Unmarshal(body, &sim)
+	if resp.StatusCode != 200 || sim.PathsBefore != sim.PathsAfter {
+		t.Errorf("an empty simulation must not change the path count: %d %+v", resp.StatusCode, sim)
+	}
+}

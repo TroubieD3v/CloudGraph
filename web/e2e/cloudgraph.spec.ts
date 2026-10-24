@@ -141,3 +141,10 @@ test("what-if marks fixes as patchable or manual", async ({ page }) => {
   await expect(page.getByTestId("fix").filter({ hasText: "patch: docker-compose.yml" }).first()).toBeVisible();
   await expect(page.getByTestId("fix").filter({ hasText: "manual change in Terraform" }).first()).toBeVisible();
 });
+
+test("overview states the search limits and their scope", async ({ page }) => {
+  await analyse(page, "insecure-kubernetes");
+  await expect(page.getByTestId("search-limits")).toHaveText(/· complete$/);
+  await expect(page.getByTestId("search-scope")).toContainText("network pivot");
+  await expect(page.getByTestId("search-incomplete")).toHaveCount(0);
+});

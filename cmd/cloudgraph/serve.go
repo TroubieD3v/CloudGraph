@@ -20,7 +20,11 @@ func cmdServe(args []string) error {
 	fs := flag.NewFlagSet("serve", flag.ContinueOnError)
 	addr := fs.String("addr", "127.0.0.1:8080", "listen address (keep it on loopback: the API has no authentication)")
 	db := fs.String("db", "cloudgraph.db", "SQLite database path (use :memory: for no persistence)")
+	lim := searchFlags(fs)
 	if _, err := parseInterspersed(fs, args); err != nil {
+		return err
+	}
+	if err := lim.Validate(); err != nil {
 		return err
 	}
 	if host, _, err := net.SplitHostPort(*addr); err == nil && host != "127.0.0.1" && host != "localhost" && host != "::1" {
@@ -34,7 +38,7 @@ func cmdServe(args []string) error {
 
 	srv := &http.Server{
 		Addr:              *addr,
-		Handler:           server.New(st, ui.FS()).Handler(),
+		Handler:           server.New(st, ui.FS()).WithLimits(*lim).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
