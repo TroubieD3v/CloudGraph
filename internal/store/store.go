@@ -87,6 +87,7 @@ func (s *Store) Get(id string) (*model.Analysis, error) {
 	if err := json.Unmarshal(b, &a); err != nil {
 		return nil, err
 	}
+	a.PathSearch.Normalize()
 	return &a, nil
 }
 

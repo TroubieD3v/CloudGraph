@@ -234,6 +234,41 @@ export function PathCard({
       ) : (
         details
       )}
+      {path.alternatives && path.alternatives.length > 0 ? (
+        <details className="more" data-testid="alternatives" open>
+          <summary>
+            Alternative routes ({path.alternatives.length} of {path.similarRoutes})
+          </summary>
+          <ul className="alternatives">
+            {path.alternatives.map((alt) => (
+              <li key={alt.id}>
+                <div className="route">
+                  {alt.nodes.slice(1).map((id, i) => (
+                    <span key={id + i}>
+                      {i > 0 && <span className="sep">→</span>}
+                      {names?.get(id)?.name ?? id}
+                    </span>
+                  ))}
+                </div>
+                <Conf c={alt.confidence} />
+                {alt.prerequisites.length > 0 && (
+                  <ul className="note">
+                    {alt.prerequisites.map((p) => (
+                      <li key={p}>{p}</li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : (
+        !!path.similarRoutes && (
+          <p className="note" data-testid="similar-routes">
+            +{path.similarRoutes} similar route{path.similarRoutes > 1 ? "s" : ""} merged into this one. Turn on “Show alternative paths” to compare their preconditions.
+          </p>
+        )
+      )}
       <div className="path-foot">
         <span className="note">
           Hypothetical chain{target ? ` to ${target.name}` : ""}. Connections do not prove that exploitation is possible.

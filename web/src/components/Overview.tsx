@@ -1,6 +1,6 @@
 import { CircleHelp, Download, FlaskConical, Info, Lightbulb, ShieldAlert, ShieldCheck, Trash2, TriangleAlert, Waypoints } from "lucide-react";
 import type { Tab } from "../App";
-import type { Analysis, Source } from "../types";
+import type { Analysis, Coverage, Source } from "../types";
 import { Dial, PathCard, SEVERITIES, nameMap } from "./common";
 
 function posture(a: Analysis): { label: string; cls: string } {
@@ -10,13 +10,40 @@ function posture(a: Analysis): { label: string; cls: string } {
   return { label: "Watch", cls: "amber" };
 }
 
+function counts(m?: Record<string, number>) {
+  const e = Object.entries(m ?? {}).sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0]));
+  return e.length ? e.map(([k, n]) => `${k} ×${n}`).join(", ") : "none";
+}
+
+function CoverageInfo({ c }: { c: Coverage }) {
+  return (
+    <details className="coverage" data-testid="coverage">
+      <summary>What this search covered</summary>
+      <dl>
+        <dt>Resources</dt>
+        <dd>{counts(c.resourceKinds)}</dd>
+        <dt>Relationships followed</dt>
+        <dd>{counts(c.edgeTypes)}</dd>
+        <dt>Undecided, never followed</dt>
+        <dd>{c.unknownEdges}</dd>
+        <dt>Not modelled (input only)</dt>
+        <dd data-testid="coverage-unmodelled">{counts(c.unmodelledTypes)}</dd>
+      </dl>
+    </details>
+  );
+}
+
 export function Overview({
   a,
   onOpen,
   onShowPath,
   onDelete,
   onNavigate,
+  alternatives,
+  onToggleAlternatives,
 }: {
+  alternatives: boolean;
+  onToggleAlternatives: (on: boolean) => void;
   a: Analysis;
   onOpen: (s: Source) => void;
   onShowPath: (id: string) => void;
@@ -152,10 +179,16 @@ export function Overview({
           {a.pathSearch && (
             <p data-testid="search-limits">
               Search limits: depth {a.pathSearch.limits.maxDepth} edges · {a.pathSearch.limits.maxPivots} network pivot(s) per path ·{" "}
-              {a.pathSearch.candidates} of max {a.pathSearch.limits.maxCandidates} candidates · {a.pathSearch.complete ? "complete" : "incomplete"}
+              {a.pathSearch.candidates} of max {a.pathSearch.limits.maxCandidates} candidates ·{" "}
+              {a.pathSearch.searchComplete ? "search complete" : "search incomplete"} ·{" "}
+              {a.pathSearch.scopeLimited ? "limited coverage" : "no routes excluded"}
             </p>
           )}
         </div>
+        <label className="toggle" title="List the routes that were merged into each path, with their preconditions">
+          <input type="checkbox" data-testid="alt-toggle" checked={alternatives} onChange={(e) => onToggleAlternatives(e.target.checked)} />
+          Show alternative paths
+        </label>
       </div>
       <div className="banner" style={{ marginBottom: 16 }}>
         <Info size={18} />
@@ -176,6 +209,7 @@ export function Overview({
           </p>
         ),
       )}
+      {a.pathSearch?.coverage && <CoverageInfo c={a.pathSearch.coverage} />}
       {a.paths.length === 0 && <div className="card empty">No attack paths found in this configuration.</div>}
       {a.paths.length > 0 && <PathCard path={a.paths[0]} onOpen={onOpen} names={names} onSelect={onShowPath} featured />}
       {a.paths.length > 1 && (

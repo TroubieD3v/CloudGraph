@@ -101,12 +101,22 @@ func refAddress(ref, prefix string) string {
 	return prefix + parts[0] + "." + parts[1]
 }
 
+// TerraformTypes lists every resource type the importer models. Anything else
+// is counted as unmodelled. docs/terraform-support.md must name each of them.
+var TerraformTypes = []string{
+	"aws_security_group", "aws_security_group_rule", "aws_vpc_security_group_ingress_rule",
+	"aws_instance", "aws_iam_instance_profile",
+	"aws_iam_role", "aws_iam_policy", "aws_iam_role_policy", "aws_iam_role_policy_attachment",
+	"aws_s3_bucket", "aws_s3_bucket_public_access_block", "aws_s3_bucket_acl", "aws_s3_bucket_server_side_encryption_configuration",
+	"aws_db_instance",
+}
+
 func tfID(addr string) string { return "tf:" + addr }
 
-func parseTerraform(f File) ([]*model.Resource, []string, error) {
+func parseTerraform(f File) ([]*model.Resource, []string, map[string]int, error) {
 	var plan tfPlan
 	if err := json.Unmarshal(f.Data, &plan); err != nil {
-		return nil, nil, fmt.Errorf("invalid Terraform plan JSON: %w", err)
+		return nil, nil, nil, fmt.Errorf("invalid Terraform plan JSON: %w", err)
 	}
 	var raws []tfResource
 	flattenResources(plan.PlannedValues.RootModule, &raws)
@@ -347,7 +357,7 @@ func parseTerraform(f File) ([]*model.Resource, []string, error) {
 		sort.Strings(ts)
 		warns = append(warns, fmt.Sprintf("%s: resource types not modelled yet: %s", f.Name, strings.Join(ts, ", ")))
 	}
-	return out, warns, nil
+	return out, warns, skipped, nil
 }
 
 func byID(m map[string]*model.Resource, id string) *model.Resource {

@@ -234,3 +234,50 @@ func TestSearchLimitsPerAnalysis(t *testing.T) {
 		t.Errorf("an empty simulation must not change the path count: %d %+v", resp.StatusCode, sim)
 	}
 }
+
+func TestAlternativesAreOptInAndNotStored(t *testing.T) {
+	ts := newServer(t)
+	compose := "services:\n" +
+		"  gateway: {image: 'nginx:1.27.2', ports: ['8080:80'], networks: [edge]}\n" +
+		"  app: {image: 'acme/app:1', networks: [edge, data]}\n" +
+		"  worker: {image: 'acme/worker:1', networks: [edge, data]}\n" +
+		"  db: {image: 'postgres:16.4', networks: [data]}\n" +
+		"networks: {edge: {}, data: {}}\n"
+	req, _ := json.Marshal(map[string]any{
+		"files":  []map[string]string{{"name": "docker-compose.yml", "content": compose}},
+		"limits": map[string]int{"maxPivots": 3},
+	})
+	resp, body := do(t, ts, "POST", "/api/analyses", string(req), nil)
+	if resp.StatusCode != 201 {
+		t.Fatalf("create: %d %s", resp.StatusCode, body)
+	}
+	var a model.Analysis
+	_ = json.Unmarshal(body, &a)
+	merged := func(a model.Analysis) (similar, alts int) {
+		for _, p := range a.Paths {
+			similar += p.SimilarRoutes
+			alts += len(p.Alternatives)
+		}
+		return
+	}
+	if similar, alts := merged(a); similar == 0 || alts != 0 {
+		t.Fatalf("by default routes are counted, not listed: similar=%d alternatives=%d", similar, alts)
+	}
+
+	_, body = do(t, ts, "GET", "/api/analyses/"+a.ID+"?alternatives=1", "", nil)
+	var withAlt model.Analysis
+	_ = json.Unmarshal(body, &withAlt)
+	if similar, alts := merged(withAlt); alts == 0 || alts != similar {
+		t.Errorf("?alternatives=1 must list every merged route: similar=%d alternatives=%d", similar, alts)
+	}
+	if len(withAlt.Findings) != len(a.Findings) || len(withAlt.Paths) != len(a.Paths) {
+		t.Errorf("alternatives must not change findings or the number of paths")
+	}
+
+	_, body = do(t, ts, "GET", "/api/analyses/"+a.ID, "", nil)
+	var again model.Analysis
+	_ = json.Unmarshal(body, &again)
+	if _, alts := merged(again); alts != 0 {
+		t.Error("the stored snapshot must stay unchanged")
+	}
+}

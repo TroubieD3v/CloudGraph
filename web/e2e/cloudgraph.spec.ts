@@ -144,8 +144,10 @@ test("what-if marks fixes as patchable or manual", async ({ page }) => {
 
 test("overview states the search limits and their scope", async ({ page }) => {
   await analyse(page, "insecure-kubernetes");
-  await expect(page.getByTestId("search-limits")).toHaveText(/· complete$/);
-  await expect(page.getByTestId("search-scope")).toContainText("network pivot");
+  await expect(page.getByTestId("search-limits")).toHaveText(/· search complete · limited coverage$/);
+  await expect(page.getByTestId("search-scope").first()).toContainText("network pivot");
+  await page.getByTestId("coverage").locator("summary").click();
+  await expect(page.getByTestId("coverage")).toContainText("network_reach");
   await expect(page.getByTestId("search-incomplete")).toHaveCount(0);
 });
 
@@ -170,4 +172,30 @@ test("secondary paths are compact and expand on demand", async ({ page }) => {
   await expect(second.locator(".steps")).toBeHidden();
   await second.locator("summary").click();
   await expect(second.locator(".steps")).toBeVisible();
+});
+
+test("show alternative paths lists the routes merged into a path", async ({ page }) => {
+  const compose = [
+    "services:",
+    "  gateway: {image: 'nginx:1.27.2', ports: ['8080:80'], networks: [edge]}",
+    "  app: {image: 'acme/app:1', networks: [edge, data]}",
+    "  worker: {image: 'acme/worker:1', networks: [edge, data]}",
+    "  db: {image: 'postgres:16.4', networks: [data]}",
+    "networks: {edge: {}, data: {}}",
+  ].join("\n");
+  const res = await page.request.post("/api/analyses", {
+    data: { name: "alternatives", files: [{ name: "docker-compose.yml", content: compose }], limits: { maxPivots: 3 } },
+  });
+  const { id } = await res.json();
+  await page.goto("/");
+  await page.getByLabel("Analysis history").selectOption(id);
+  await expect(page.getByTestId("stat-paths")).toBeVisible();
+
+  await expect(page.getByTestId("similar-routes").first()).toContainText("similar route");
+  await expect(page.getByTestId("alternatives")).toHaveCount(0);
+  await page.getByTestId("alt-toggle").check();
+  await expect(page.getByTestId("alternatives").first()).toContainText("Alternative routes");
+  await expect(page.getByTestId("similar-routes")).toHaveCount(0);
+  await page.getByTestId("alt-toggle").uncheck();
+  await expect(page.getByTestId("alternatives")).toHaveCount(0);
 });

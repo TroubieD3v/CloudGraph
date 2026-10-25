@@ -217,10 +217,22 @@ func (s *Server) load(w http.ResponseWriter, id string) *model.Analysis {
 	return a
 }
 
+// get returns a snapshot. With ?alternatives=1 the paths also list the routes
+// that were merged into them; the stored snapshot is not changed.
 func (s *Server) get(w http.ResponseWriter, r *http.Request) {
-	if a := s.load(w, r.PathValue("id")); a != nil {
-		writeJSON(w, 200, a)
+	a := s.load(w, r.PathValue("id"))
+	if a == nil {
+		return
 	}
+	if r.URL.Query().Get("alternatives") == "1" {
+		withAlt, err := analyze.WithAlternatives(a)
+		if err != nil {
+			fail(w, 500, err)
+			return
+		}
+		a = withAlt
+	}
+	writeJSON(w, 200, a)
 }
 
 func (s *Server) remove(w http.ResponseWriter, r *http.Request) {

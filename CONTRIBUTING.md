@@ -2,7 +2,7 @@
 
 ```bash
 make build            # UI + binary
-go vet ./... && go test ./...
+go vet ./... && go test -race ./...
 npm --prefix web run test:e2e
 ```
 

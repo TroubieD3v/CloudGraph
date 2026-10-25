@@ -28,6 +28,9 @@ type Inventory struct {
 	Resources []*model.Resource
 	Files     map[string][]string // file name -> lines, for patch export
 	Warnings  []string
+	// Unmodelled counts input resources whose type the importer does not model,
+	// by type. They are not in Resources, so no path can run through them.
+	Unmodelled map[string]int
 }
 
 // Formats returned by Detect.
@@ -141,7 +144,14 @@ func Parse(files []File) (*Inventory, error) {
 		case FormatCompose:
 			res, warn, err = parseCompose(f)
 		case FormatTerraform:
-			res, warn, err = parseTerraform(f)
+			var skipped map[string]int
+			res, warn, skipped, err = parseTerraform(f)
+			for t, n := range skipped {
+				if inv.Unmodelled == nil {
+					inv.Unmodelled = map[string]int{}
+				}
+				inv.Unmodelled[t] += n
+			}
 		default:
 			inv.Warnings = append(inv.Warnings, fmt.Sprintf("%s: format not recognised, skipped", f.Name))
 			continue

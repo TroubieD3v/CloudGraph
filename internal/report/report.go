@@ -23,12 +23,11 @@ func Text(w io.Writer, a *model.Analysis) {
 	s := a.Summary
 	fmt.Fprintf(w, "CloudGraph — %s\n", a.Name)
 	fmt.Fprintf(w, "Resources: %d   Edges: %d   Findings: %d   Risk paths: %d   Unknown: %d\n\n", s.Resources, s.Edges, s.Findings, s.Paths, s.Unknowns)
+	fmt.Fprintf(w, "Search: %s\n", SearchStatus(a.PathSearch))
 	for _, n := range a.PathSearch.Notices {
 		fmt.Fprintf(w, "! %s\n", n)
 	}
-	if len(a.PathSearch.Notices) > 0 {
-		fmt.Fprintln(w)
-	}
+	fmt.Fprintln(w)
 
 	if len(a.Paths) > 0 {
 		fmt.Fprintln(w, "POTENTIAL ATTACK PATHS (static analysis; not proof of exploitation)")
@@ -47,6 +46,18 @@ func Text(w io.Writer, a *model.Analysis) {
 			}
 			for _, c := range p.Prerequisites {
 				fmt.Fprintf(w, "       needs: %s\n", c)
+			}
+			switch {
+			case len(p.Alternatives) > 0:
+				fmt.Fprintf(w, "       alternative routes (%d of %d merged):\n", len(p.Alternatives), p.SimilarRoutes)
+				for _, alt := range p.Alternatives {
+					fmt.Fprintf(w, "         - %s\n", routeLabel(alt))
+					for _, c := range alt.Prerequisites {
+						fmt.Fprintf(w, "             needs: %s\n", c)
+					}
+				}
+			case p.SimilarRoutes > 0:
+				fmt.Fprintf(w, "       +%d similar route(s) merged into this one; --alternatives lists them\n", p.SimilarRoutes)
 			}
 		}
 		fmt.Fprintln(w)
@@ -89,8 +100,10 @@ var htmlTmpl = template.Must(template.New("r").Funcs(template.FuncMap{
 		}
 		return s.File
 	},
-	"upper": strings.ToUpper,
-	"join":  strings.Join,
+	"upper":  strings.ToUpper,
+	"route":  routeLabel,
+	"status": SearchStatus,
+	"join":   strings.Join,
 }).Parse(`<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>CloudGraph report — {{.A.Name}}</title>
 <style>
@@ -110,6 +123,7 @@ code{font-family:ui-monospace,Consolas,monospace;color:var(--acc)}ol{margin:12px
 </style></head><body><main>
 <span class="kicker">CloudGraph · static analysis</span>
 <h1>{{.A.Name}}</h1>
+<div class="note">Search: {{status .A.PathSearch}}</div>
 <div class="note">Infrastructure Attack Path Analysis · generated {{.A.CreatedAt}} · static analysis of configuration only</div>
 <div class="stats">
 <div class="stat"><b>{{.A.Summary.Resources}}</b><span>Resources</span></div>
@@ -122,7 +136,9 @@ code{font-family:ui-monospace,Consolas,monospace;color:var(--acc)}ol{margin:12px
 <p class="note">A path shows how separate weaknesses could be chained. It is conditional: connections do not prove that the exposed application can actually be compromised.</p>
 {{range .A.Paths}}<div class="card"><span class="badge {{.Severity}}">{{upper .Severity}} {{.Score}}</span> <b>{{.Title}}</b> <span class="note">· {{.Confidence}}</span>
 <ol>{{range .Steps}}<li>{{.Label}} <code>{{loc .Src}}</code> <span class="note">[{{.Confidence}}]</span></li>{{end}}</ol>
-{{if .Prerequisites}}<div class="note" style="margin-top:8px">Preconditions: {{join .Prerequisites "; "}}</div>{{end}}</div>
+{{if .Prerequisites}}<div class="note" style="margin-top:8px">Preconditions: {{join .Prerequisites "; "}}</div>{{end}}
+{{if .Alternatives}}<details style="margin-top:8px"><summary class="note">Alternative routes ({{len .Alternatives}} of {{.SimilarRoutes}} merged)</summary><ul>{{range .Alternatives}}<li>{{route .}}{{if .Prerequisites}}<div class="note">Preconditions: {{join .Prerequisites "; "}}</div>{{end}}</li>{{end}}</ul></details>
+{{else if .SimilarRoutes}}<div class="note" style="margin-top:8px">+{{.SimilarRoutes}} similar route(s) merged into this one.</div>{{end}}</div>
 {{else}}<div class="card note">No attack paths found.</div>{{end}}
 
 <h2>Findings</h2>
@@ -133,6 +149,24 @@ code{font-family:ui-monospace,Consolas,monospace;color:var(--acc)}ol{margin:12px
 {{if .A.Unknowns}}<h2>Unknown — not enough information</h2>
 <div class="card"><ul>{{range .A.Unknowns}}<li>{{.Message}} <code>{{loc .Src}}</code></li>{{end}}</ul></div>{{end}}
 </main></body></html>`))
+
+// SearchStatus is the one-line answer to "did this search cover everything?".
+func SearchStatus(s model.PathSearch) string {
+	search := "complete"
+	if !s.SearchComplete {
+		search = "INCOMPLETE (a limit stopped it)"
+	}
+	scope := "no routes excluded by limits"
+	if s.ScopeLimited {
+		scope = "LIMITED COVERAGE (some routes excluded by limits)"
+	}
+	return fmt.Sprintf("%s; %s", search, scope)
+}
+
+// routeLabel names a route by the resources it passes through.
+func routeLabel(p *model.Path) string {
+	return strings.Join(p.Nodes[1:], " → ") + " (" + string(p.Confidence) + ")"
+}
 
 // HTML writes a self-contained report.
 func HTML(w io.Writer, a *model.Analysis) error {

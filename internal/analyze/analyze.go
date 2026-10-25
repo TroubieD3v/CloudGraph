@@ -47,6 +47,7 @@ func FromInventoryWith(name string, inv *parse.Inventory, lim model.SearchLimits
 	g := graph.Build(inv.Resources)
 	findings, fixes := rules.Run(inv, g)
 	ps, search := paths.FindWith(g, lim)
+	search.Coverage.UnmodelledTypes = inv.Unmodelled
 
 	for _, p := range ps {
 		inPath := map[string]bool{}
@@ -115,4 +116,25 @@ func cloneResources(rs []*model.Resource) ([]*model.Resource, error) {
 		return nil, err
 	}
 	return out, nil
+}
+
+// WithAlternatives returns a copy of a stored analysis whose paths list the
+// routes that were merged into them. Only the path search is repeated; findings,
+// graph and sources are those of the original.
+func WithAlternatives(a *model.Analysis) (*model.Analysis, error) {
+	inv, err := InventoryOf(a)
+	if err != nil {
+		return nil, err
+	}
+	lim := a.PathSearch.Limits
+	if lim.Validate() != nil {
+		lim = model.DefaultSearchLimits() // snapshots from before limits were recorded
+	}
+	lim.ShowAlternatives = true
+	again := FromInventoryWith(a.Name, inv, lim)
+
+	out := *a
+	out.Paths, out.Hotspots, out.PathSearch = again.Paths, again.Hotspots, again.PathSearch
+	out.PathSearch.Coverage.UnmodelledTypes = a.PathSearch.Coverage.UnmodelledTypes
+	return &out, nil
 }

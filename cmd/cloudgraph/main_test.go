@@ -19,6 +19,8 @@ func TestScanExitCodes(t *testing.T) {
 		{"no gate requested", []string{"demo:vulnerable-all", "--format", "json", "--output", out}, 0},
 		{"truncated search with --fail-incomplete", []string{"demo:insecure-kubernetes", "--max-depth", "3", "--fail-incomplete", "--format", "json", "--output", out}, 1},
 		{"complete search with --fail-incomplete", []string{"demo:insecure-kubernetes", "--fail-incomplete", "--format", "json", "--output", out}, 0},
+		{"zero pivots with --fail-limited", []string{"demo:vulnerable-all", "--max-pivots", "0", "--fail-limited", "--format", "json", "--output", out}, 1},
+		{"zero pivots is still a complete search", []string{"demo:vulnerable-all", "--max-pivots", "0", "--fail-incomplete", "--format", "json", "--output", out}, 0},
 		{"invalid limit", []string{"demo:insecure-kubernetes", "--max-depth", "0", "--output", out}, 2},
 		{"unknown severity", []string{"demo:insecure-kubernetes", "--fail-on", "urgent", "--output", out}, 2},
 	}

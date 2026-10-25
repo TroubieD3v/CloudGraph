@@ -34,12 +34,16 @@ files ──► parse ──► inventory ──► graph ──► rules ──
 
 Depth-first search from the Internet over attack edges, never over Unknown, stopping at sensitive nodes. The search
 is bounded by `model.SearchLimits` (depth, candidate count, network pivots per path); `paths.FindWith` returns a
-`PathSearch` record with the limits, how often each was reached and whether the result is complete. Depth and
-candidate limits make the result incomplete; the pivot limit is a scope choice and is only reported as a note.
+`PathSearch` record with the limits, how often each was reached and two separate answers: `SearchComplete` (no depth
+or candidate limit stopped the search) and `ScopeLimited` (any limit, the pivot limit included, left routes out).
+The pivot limit is a scope choice, so it does not make the search incomplete but it does limit the coverage.
+`Coverage` lists the resource kinds and relationship types the search could use and the input types that are not
+modelled. `Complete` is the old name of `SearchComplete`.
 
 The best candidate per (first compromised resource, last hop, target) is kept: highest weakest-step confidence first,
 then fewest unconfirmed steps, then the shortest route. Score = target weight × confidence factor (confirmed 1.0,
-inferred 0.92, conditional 0.85), minus a small penalty for long paths.
+inferred 0.92, conditional 0.85), minus a small penalty for long paths. The routes merged into a path are counted
+(`SimilarRoutes`) and, with `SearchLimits.ShowAlternatives`, kept as `Alternatives` (at most `model.MaxAlternatives`).
 
 ## What-if and patches
 

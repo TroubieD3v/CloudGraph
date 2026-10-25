@@ -38,6 +38,7 @@ Search limits (reports say when one was reached):
   --max-depth N    longest attack path explored, in edges (default 10, max 20)
   --max-paths N    candidate paths collected before stopping (default 20000)
   --max-pivots N   network pivots allowed in one path (default 1, max 3)
+  --alternatives   list the routes merged into each path instead of only counting them
 `
 
 func main() {
@@ -133,6 +134,7 @@ func searchFlags(fs *flag.FlagSet) *model.SearchLimits {
 	fs.IntVar(&lim.MaxDepth, "max-depth", lim.MaxDepth, "longest attack path explored, in edges")
 	fs.IntVar(&lim.MaxCandidates, "max-paths", lim.MaxCandidates, "candidate paths collected before the search stops")
 	fs.IntVar(&lim.MaxPivots, "max-pivots", lim.MaxPivots, "network pivots allowed in one path")
+	fs.BoolVar(&lim.ShowAlternatives, "alternatives", lim.ShowAlternatives, "list the routes merged into each path instead of only counting them")
 	return &lim
 }
 
@@ -159,6 +161,7 @@ func cmdScan(args []string) (int, error) {
 	output := fs.String("output", "", "write to FILE instead of stdout")
 	failOn := fs.String("fail-on", "", "exit 1 if a finding of at least this severity exists (critical, high, medium, low)")
 	failIncomplete := fs.Bool("fail-incomplete", false, "exit 1 if a search limit cut the attack path search short")
+	failLimited := fs.Bool("fail-limited", false, "exit 1 if any limit, including --max-pivots, left routes out of the result")
 	lim := searchFlags(fs)
 	inputs, err := parseInterspersed(fs, args)
 	if err != nil {
@@ -193,7 +196,10 @@ func cmdScan(args []string) (int, error) {
 			a.Summary.Findings, strings.Join(report.SeverityCounts(a), ", "), a.Summary.Paths, *output)
 		printNotices(a)
 	}
-	if *failIncomplete && !a.PathSearch.Complete {
+	if *failIncomplete && !a.PathSearch.SearchComplete {
+		return 1, nil
+	}
+	if *failLimited && a.PathSearch.ScopeLimited {
 		return 1, nil
 	}
 	if *failOn != "" {

@@ -82,6 +82,10 @@ export interface Path {
   explanation: string;
   signature: string;
   findingIds?: string[];
+  /** Other routes with the same start, last hop and target that were merged into this one. */
+  similarRoutes?: number;
+  /** Those routes, best supported first; present only in "Show alternative paths" mode. */
+  alternatives?: Path[];
 }
 
 export interface UnknownNote {
@@ -119,13 +123,26 @@ export interface Analysis {
 }
 
 export interface PathSearch {
-  limits: { maxDepth: number; maxCandidates: number; maxPivots: number };
+  limits: { maxDepth: number; maxCandidates: number; maxPivots: number; showAlternatives?: boolean };
   candidates: number;
   depthLimitHits: number;
   candidateLimitHit: boolean;
   pivotLimitHits: number;
+  /** No depth or candidate limit stopped the search. */
+  searchComplete: boolean;
+  /** Some routes were left out by a limit (depth, candidates or network pivots). */
+  scopeLimited: boolean;
+  /** Former name of searchComplete. */
   complete: boolean;
+  coverage?: Coverage;
   notices?: string[];
+}
+
+export interface Coverage {
+  resourceKinds: Record<string, number>;
+  edgeTypes: Record<string, number>;
+  unknownEdges: number;
+  unmodelledTypes?: Record<string, number>;
 }
 
 export interface HistoryItem {

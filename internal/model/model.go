@@ -392,6 +392,14 @@ type Path struct {
 	Explanation   string     `json:"explanation"`
 	Signature     string     `json:"signature"`
 	FindingIDs    []string   `json:"findingIds,omitempty"`
+	// SimilarRoutes is how many other routes with the same first compromised
+	// resource, last hop and target were merged into this one (the best supported
+	// route represents the group).
+	SimilarRoutes int `json:"similarRoutes,omitempty"`
+	// Alternatives lists those merged routes, best supported first, when
+	// SearchLimits.ShowAlternatives is set. They can rest on different
+	// prerequisites even though they start and end in the same place.
+	Alternatives []*Path `json:"alternatives,omitempty"`
 }
 
 // UnknownNote records a place where the input was insufficient. CloudGraph
@@ -411,7 +419,14 @@ type SearchLimits struct {
 	MaxCandidates int `json:"maxCandidates"`
 	// MaxPivots is the number of network pivots (lateral hops) one path may use.
 	MaxPivots int `json:"maxPivots"`
+	// ShowAlternatives keeps the routes that are merged into one path because
+	// they start and end alike, so an analyst can compare their prerequisites.
+	// It changes what is reported, not what is searched.
+	ShowAlternatives bool `json:"showAlternatives"`
 }
+
+// MaxAlternatives caps the alternatives listed per path.
+const MaxAlternatives = 10
 
 // Limits on what callers may request; they keep the search bounded on
 // untrusted input.
@@ -440,6 +455,12 @@ func (l SearchLimits) Validate() error {
 }
 
 // PathSearch records how the search went, so a report can say when it was cut short.
+//
+// "Complete" is split in two questions. SearchComplete: did the search run to
+// the end, or did a depth or candidate limit stop it? ScopeLimited: were any
+// routes left out by a configured limit (depth, candidates or network pivots)?
+// A search can be complete and still scope-limited; a client that wants to say
+// "no more attack paths exist" must check both.
 type PathSearch struct {
 	Limits     SearchLimits `json:"limits"`
 	Candidates int          `json:"candidates"`
@@ -451,10 +472,41 @@ type PathSearch struct {
 	// PivotLimitHits counts network pivots not taken because of MaxPivots. This
 	// is a deliberate scope choice rather than a truncation.
 	PivotLimitHits int `json:"pivotLimitHits"`
-	// Complete is false when a depth or candidate limit cut the search short.
+	// SearchComplete is false when a depth or candidate limit stopped the search.
+	SearchComplete bool `json:"searchComplete"`
+	// ScopeLimited is true when any limit (depth, candidates or network pivots)
+	// excluded routes from the result.
+	ScopeLimited bool `json:"scopeLimited"`
+	// Complete is the former name of SearchComplete, kept for existing clients.
+	// It does not cover MaxPivots; prefer SearchComplete and ScopeLimited.
 	Complete bool `json:"complete"`
+	// Coverage says what the search could look at.
+	Coverage Coverage `json:"coverage"`
 	// Notices explains, in plain language, every limit that was reached.
 	Notices []string `json:"notices,omitempty"`
+}
+
+// Coverage lists the kinds of resources and relationships the search worked
+// with, so "no path found" is read against what was actually modelled.
+type Coverage struct {
+	// ResourceKinds counts the resources in the graph by kind.
+	ResourceKinds map[string]int `json:"resourceKinds"`
+	// EdgeTypes counts the relationships the search may follow, by type.
+	EdgeTypes map[string]int `json:"edgeTypes"`
+	// UnknownEdges counts relationships that exist but whose reachability could
+	// not be decided; the search never follows them.
+	UnknownEdges int `json:"unknownEdges"`
+	// UnmodelledTypes counts input resources of types the importer does not
+	// model (for Terraform, anything outside docs/terraform-support.md). They
+	// are absent from the graph, so no path can run through them.
+	UnmodelledTypes map[string]int `json:"unmodelledTypes,omitempty"`
+}
+
+// Normalize fills the fields that snapshots saved before they existed lack.
+func (s *PathSearch) Normalize() {
+	if s.Coverage.ResourceKinds == nil && !s.SearchComplete && s.Complete {
+		s.SearchComplete = true
+	}
 }
 
 // BuildNotices returns human-readable explanations of the limits that were reached.
@@ -469,7 +521,7 @@ func (s PathSearch) BuildNotices() []string {
 			s.DepthLimitHits, s.Limits.MaxDepth))
 	}
 	if s.PivotLimitHits > 0 {
-		out = append(out, fmt.Sprintf("Scope: %d network pivot(s) beyond the limit of %d per path were not followed (chains through ordinary application tiers are not reported). Raise --max-pivots to include them.",
+		out = append(out, fmt.Sprintf("Limited coverage: %d network pivot(s) beyond the limit of %d per path were not followed, so attack paths that need more pivots are not in this result (chains through ordinary application tiers are not reported). Raise --max-pivots to include them.",
 			s.PivotLimitHits, s.Limits.MaxPivots))
 	}
 	return out

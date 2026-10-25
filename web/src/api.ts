@@ -22,7 +22,8 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
 export const api = {
   demos: () => request<Demo[]>("GET", "/api/demos"),
   history: () => request<HistoryItem[]>("GET", "/api/analyses"),
-  get: (id: string) => request<Analysis>("GET", `/api/analyses/${id}`),
+  get: (id: string, alternatives = false) =>
+    request<Analysis>("GET", `/api/analyses/${id}${alternatives ? "?alternatives=1" : ""}`),
   remove: (id: string) => request<void>("DELETE", `/api/analyses/${id}`),
   analyzeDemo: (demo: string) => request<Analysis>("POST", "/api/analyses", { demo }),
   analyzeFiles: (name: string, files: { name: string; content: string }[]) =>

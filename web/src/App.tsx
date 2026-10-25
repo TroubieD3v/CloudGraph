@@ -49,6 +49,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [over, setOver] = useState(false);
+  const [alt, setAlt] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => setHistory(await api.history()), []);
@@ -65,6 +66,7 @@ export default function App() {
       try {
         const next = await p;
         setA(next);
+        setAlt(false);
         setPathId("");
         setTab("overview");
         await refresh();
@@ -84,6 +86,19 @@ export default function App() {
       return;
     }
     await adopt(api.analyzeFiles("upload", read));
+  };
+
+  // Alternatives are computed on demand; the stored snapshot stays as it was.
+  const toggleAlternatives = async (on: boolean) => {
+    if (!a) return;
+    setErr("");
+    setAlt(on);
+    try {
+      setA(await api.get(a.id, on));
+    } catch (e) {
+      setAlt(!on);
+      setErr(String((e as Error).message));
+    }
   };
 
   const removeCurrent = async () => {
@@ -222,7 +237,7 @@ export default function App() {
       <main className={`content ${tab === "graph" ? "full" : ""}`}>
         {err && <div className="error">{err}</div>}
         <ErrorBoundary resetKey={`${a.id}:${tab}`}>
-          {tab === "overview" && <Overview a={a} onOpen={setSrc} onShowPath={showPath} onDelete={removeCurrent} onNavigate={setTab} />}
+          {tab === "overview" && <Overview a={a} onOpen={setSrc} onShowPath={showPath} onDelete={removeCurrent} onNavigate={setTab} alternatives={alt} onToggleAlternatives={toggleAlternatives} />}
           {tab === "graph" && <GraphView a={a} pathId={pathId} setPathId={setPathId} onOpen={setSrc} theme={theme} />}
           {tab === "findings" && <Findings a={a} onOpen={setSrc} />}
           {tab === "whatif" && <WhatIf a={a} />}

@@ -1,6 +1,8 @@
 package parse
 
 import (
+	"fmt"
+	"os"
 	"strings"
 	"testing"
 
@@ -234,5 +236,28 @@ func TestTerraformStandaloneRulesAndModules(t *testing.T) {
 	inst := find(inv, "tf:module.app.aws_instance.this")
 	if inst == nil || len(inst.Refs["vpc_security_group_ids"]) != 1 || inst.Refs["vpc_security_group_ids"][0] != "tf:module.app.aws_security_group.this" {
 		t.Errorf("module references not resolved: %+v", inst)
+	}
+}
+
+func TestTerraformSupportMatrixMatchesTheImporter(t *testing.T) {
+	doc, err := os.ReadFile("../../docs/terraform-support.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var res []string
+	for _, typ := range TerraformTypes {
+		if !strings.Contains(string(doc), "`"+typ+"`") {
+			t.Errorf("docs/terraform-support.md does not list %s", typ)
+		}
+		res = append(res, fmt.Sprintf(`{"address":"%[1]s.x","mode":"managed","type":"%[1]s","name":"x","values":{}}`, typ))
+	}
+	res = append(res, `{"address":"aws_vpc.x","mode":"managed","type":"aws_vpc","name":"x","values":{}}`)
+	plan := `{"format_version":"1.2","planned_values":{"root_module":{"resources":[` + strings.Join(res, ",") + `]}}}`
+	inv, err := Parse([]File{{Name: "plan.json", Data: []byte(plan)}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(inv.Unmodelled) != 1 || inv.Unmodelled["aws_vpc"] != 1 {
+		t.Errorf("every listed type must be modelled and only aws_vpc is not: %v", inv.Unmodelled)
 	}
 }

@@ -70,12 +70,39 @@ one. A short route that needs an extra assumption never hides a longer route tha
 |---|---|---|---|
 | Path depth | 10 edges (max 20) | `--max-depth` / `maxDepth` | **Incomplete analysis** warning: some routes were not followed to the end |
 | Candidate paths | 20 000 (max 200 000) | `--max-paths` / `maxCandidates` | **Incomplete analysis** warning: the search stopped early |
-| Network pivots per path | 1 (max 3) | `--max-pivots` / `maxPivots` | Scope note: multi-pivot chains were deliberately not followed |
+| Network pivots per path | 1 (max 3) | `--max-pivots` / `maxPivots` | **Limited coverage** note: paths that need more pivots are not in the result |
 
 The limits and their outcome are recorded with every analysis and shown in the terminal, the HTML report, the
 web UI and SARIF (`invocations[].toolExecutionNotifications`, plus `runs[].properties.pathSearch`). A what-if
 simulation reuses the limits of the analysis it starts from, so it never "resolves" a path it simply did not search.
-`--fail-incomplete` turns a truncated search into exit code 1 for pipelines that must not pass on partial results.
+
+### Is the result complete?
+
+"Complete" is two questions, and the report answers both (`pathSearch` in JSON and SARIF):
+
+| Field | Meaning |
+|---|---|
+| `searchComplete` | The search ran to the end: no depth or candidate limit stopped it. (`complete` is the old name of this field.) |
+| `scopeLimited` | Some routes were left out by a limit: depth, candidates **or network pivots**. A search can be complete and still scope-limited. |
+| `coverage` | What was analysed: resources by kind, the relationship types the search could follow, undecided relationships it never follows, and input resource types that are not modelled (`unmodelledTypes`). |
+
+With the default of one pivot, a path that needs two network pivots does not appear, `searchComplete` is `true` and
+`scopeLimited` is `true`. Do not read "no path found" as "none exists" unless `scopeLimited` is `false`.
+`--fail-incomplete` exits 1 when `searchComplete` is `false`; `--fail-limited` exits 1 when `scopeLimited` is `true`.
+
+### Alternative paths
+
+Routes that start in the same place and end at the same target through the same last hop are merged into one path:
+the best supported one represents the group, and the path carries `similarRoutes` (how many were merged). They can
+rest on different preconditions, so an analyst can list them: `--alternatives` on the CLI, `limits.showAlternatives`
+in the API, `GET /api/analyses/{id}?alternatives=1` for a stored analysis, or **Show alternative paths** on the
+overview. The representative path and the path count do not change; up to 10 alternatives are listed per path.
+
+### Terraform support
+
+Terraform input covers a fixed AWS subset (security groups, EC2, IAM roles and policies, S3, RDS), not any plan. The
+[support matrix](docs/terraform-support.md) lists what is modelled and what is not; unsupported resource types are
+reported in `coverage.unmodelledTypes`.
 
 ## Workflow
 
@@ -205,7 +232,7 @@ what-if: clone inventory ──► apply fixes ──► rerun everything ──
 - `web/`: React + TypeScript + Vite, Playwright tests. `examples/`: the demo projects.
 
 Details: [docs/architecture.md](docs/architecture.md) · [docs/threat-model.md](docs/threat-model.md) ·
-[docs/RULES.md](docs/RULES.md) · [CONTRIBUTING.md](CONTRIBUTING.md) · [CHANGELOG.md](CHANGELOG.md).
+[docs/RULES.md](docs/RULES.md) · [docs/terraform-support.md](docs/terraform-support.md) · [CONTRIBUTING.md](CONTRIBUTING.md) · [CHANGELOG.md](CHANGELOG.md).
 
 ## Roadmap
 
@@ -217,7 +244,8 @@ built in, Kubernetes admission objects (PodSecurity labels), and runtime context
 | Version | Result |
 |---|---|
 | v0.1.0 | Compose, Kubernetes and Terraform import, 41 rules, attack paths, what-if with patch export, diff, SARIF, web UI, Docker |
-| **v0.2.0** | **Redesigned interface: new palette and type, dark theme by default with a light theme toggle, bundled fonts and icons, restyled HTML report** |
+| v0.2.0 | Redesigned interface: new palette and type, dark theme by default with a light theme toggle, bundled fonts and icons, restyled HTML report |
+| **v0.3.0** | **`searchComplete` / `scopeLimited` / `coverage`, alternative paths, Terraform support matrix, `-race` in CI** |
 
 Pushing a `v*` tag builds static binaries for Linux, macOS and Windows with checksums
 ([release.yml](.github/workflows/release.yml)).

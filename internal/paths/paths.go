@@ -95,31 +95,70 @@ func FindWith(g *graph.Graph, lim model.SearchLimits) ([]*model.Path, model.Path
 	}
 	dfs(graph.InternetID)
 
-	// Keep the best candidate per (compromised resource, target).
-	best := map[string]raw{}
+	// Routes that share (compromised resource, last hop, target) are merged
+	// into one path: the best supported route represents the group, the others
+	// are counted and, when asked for, kept as alternatives.
+	groups := map[string][]raw{}
 	for _, p := range found {
 		key := groupKey(g, p)
-		if cur, ok := best[key]; !ok || better(p, cur) {
-			best[key] = p
-		}
+		groups[key] = append(groups[key], p)
 	}
-	var out []*model.Path
-	for _, p := range best {
-		out = append(out, build(g, p))
+	type merged struct {
+		path *model.Path
+		alts []*model.Path
 	}
-	sort.Slice(out, func(i, j int) bool {
-		if out[i].Score != out[j].Score {
-			return out[i].Score > out[j].Score
+	var all []merged
+	for _, rs := range groups {
+		sort.Slice(rs, func(i, j int) bool { return better(rs[i], rs[j]) })
+		m := merged{path: build(g, rs[0])}
+		m.path.SimilarRoutes = len(rs) - 1
+		if lim.ShowAlternatives {
+			for _, alt := range rs[1:min(len(rs), 1+model.MaxAlternatives)] {
+				m.alts = append(m.alts, build(g, alt))
+			}
 		}
-		return out[i].Signature < out[j].Signature
+		all = append(all, m)
+	}
+	sort.Slice(all, func(i, j int) bool {
+		a, b := all[i].path, all[j].path
+		if a.Score != b.Score {
+			return a.Score > b.Score
+		}
+		return a.Signature < b.Signature
 	})
-	for i, p := range out {
-		p.ID = fmt.Sprintf("path-%d", i+1)
+	out := make([]*model.Path, len(all))
+	for i, m := range all {
+		m.path.ID = fmt.Sprintf("path-%d", i+1)
+		for j, alt := range m.alts {
+			alt.ID = fmt.Sprintf("%s-alt-%d", m.path.ID, j+1)
+		}
+		m.path.Alternatives = m.alts
+		out[i] = m.path
 	}
 	stats.Candidates = len(found)
-	stats.Complete = !stats.CandidateLimitHit && stats.DepthLimitHits == 0
+	stats.SearchComplete = !stats.CandidateLimitHit && stats.DepthLimitHits == 0
+	stats.Complete = stats.SearchComplete
+	stats.ScopeLimited = !stats.SearchComplete || stats.PivotLimitHits > 0
+	stats.Coverage = coverageOf(g)
 	stats.Notices = stats.BuildNotices()
 	return out, stats
+}
+
+// coverageOf summarises what the search had to work with.
+func coverageOf(g *graph.Graph) model.Coverage {
+	c := model.Coverage{ResourceKinds: map[string]int{}, EdgeTypes: map[string]int{}}
+	for _, r := range g.Resources {
+		c.ResourceKinds[r.Kind]++
+	}
+	for _, e := range g.Edges {
+		switch {
+		case e.Confidence == model.Unknown:
+			c.UnknownEdges++
+		case e.Attack:
+			c.EdgeTypes[e.Type]++
+		}
+	}
+	return c
 }
 
 func groupKey(g *graph.Graph, p raw) string {

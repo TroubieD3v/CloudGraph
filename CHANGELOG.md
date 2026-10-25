@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.3.0
+
+- "Complete" is now two answers. `pathSearch.searchComplete`: no depth or candidate limit stopped the search.
+  `pathSearch.scopeLimited`: any limit, **including `--max-pivots`**, left routes out. Before, a client that read
+  only `complete` could take a result that skipped multi-pivot chains for a full one. `complete` stays as the old
+  name of `searchComplete`. Stored snapshots from earlier versions are read as before.
+- `pathSearch.coverage`: resources by kind, the relationship types the search could follow, undecided relationships
+  it never follows, and input resource types that are not modelled (`unmodelledTypes`).
+- The pivot notice is now **Limited coverage** and says that paths needing more pivots are not in the result. The
+  terminal and HTML reports start with a `Search:` line; the web UI shows "search complete · limited coverage" and a
+  coverage panel.
+- `--fail-limited` exits 1 when any limit left routes out (`--fail-incomplete` keeps meaning a stopped search).
+- Alternative paths: routes merged into one path are counted in `similarRoutes`; `--alternatives`,
+  `limits.showAlternatives`, `GET /api/analyses/{id}?alternatives=1` and the **Show alternative paths** switch in the
+  overview list them with their own preconditions (up to 10 per path). The representative path does not change.
+- Public [Terraform support matrix](docs/terraform-support.md): the modelled AWS subset and the known gaps. A test
+  keeps it in sync with the importer.
+- Tests: a fixture whose only dangerous chain needs two network pivots, checked with one and two pivots.
+- CI and `make test` run `go test -race ./...`.
+
 ## 0.2.0
 
 - Redesigned web interface: palette Primary #121212, Secondary #008542, Tertiary #D97706, Neutral #64748B; Manrope

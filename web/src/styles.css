@@ -449,6 +449,16 @@ ul.plain li:first-child { border-top: 0; }
 .route .sep { color: var(--fg-dim); margin-right: 6px; }
 .route > span:last-child { color: var(--sev-critical); font-weight: 700; }
 .more { margin-top: 12px; }
+.alternatives { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 10px; }
+.alternatives > li { padding: 12px 14px; border-radius: 14px; background: var(--surface-2); }
+.alternatives .route { margin-top: 0; margin-bottom: 6px; }
+.alternatives ul.note { margin: 6px 0 0; padding-left: 18px; font-size: 12.5px; color: var(--fg-muted); }
+.coverage { margin: 0 0 16px; font-size: 13px; color: var(--fg-muted); }
+.coverage summary { cursor: pointer; font-weight: 700; color: var(--fg-dim); }
+.coverage dl { margin: 8px 0 0; display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; }
+.coverage dt { color: var(--fg-dim); }
+.coverage dd { margin: 0; }
+.toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--fg-muted); cursor: pointer; }
 .more summary { cursor: pointer; font-size: 12.5px; font-weight: 700; color: var(--fg-dim); text-transform: uppercase; letter-spacing: 0.08em; list-style: none; }
 .more summary::-webkit-details-marker { display: none; }
 .more summary::before { content: "+ "; color: var(--tertiary); }
