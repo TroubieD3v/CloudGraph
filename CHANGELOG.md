@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.0
+
+- Redesigned web interface: palette Primary #121212, Secondary #008542, Tertiary #D97706, Neutral #64748B; Manrope
+  headlines and Inter text; square buttons and inputs, rounded cards, a pill navigation (bottom bar on phones).
+- Dark theme by default with a light theme toggle in the top bar; the choice is remembered. The graph, minimap and
+  edge colours follow the theme.
+- Overview: hero with a two-ring dial (exposure and fixable findings), posture, the top path expanded and the others
+  as compact cards, a "fix this first" suggestion from the biggest shared choke point.
+- Findings as cards with kind icons; what-if with switches, impact per fix and a summary card; diff with a
+  before/after chart per metric; unknowns as cards.
+- Fonts (Manrope, Inter) and icons (Lucide) are bundled into the binary; no external requests.
+- HTML report restyled with the same palette.
+- New screenshots and demo GIF, including the light theme.
+
 ## 0.1.0
 
 - Import: Docker Compose (services, networks, ports, volumes, secrets, `depends_on`), Kubernetes YAML (Pod

@@ -99,9 +99,9 @@ test("diff shows risk paths that disappeared", async ({ page }) => {
   const diff = page.getByTestId("diff-result");
   await expect(diff).toBeVisible();
   await expect(diff).toContainText("Risk paths");
-  await expect(diff.locator(".minus").first()).toBeVisible();
-  // no new risk paths appeared (first card = risk path list)
-  await expect(diff.locator(".card").first().locator(".plus")).toHaveCount(0);
+  const paths = page.getByTestId("diff-paths");
+  await expect(paths.locator(".minus").first()).toBeVisible();
+  await expect(paths.locator(".plus")).toHaveCount(0);
 });
 
 test("uploaded compose file is analysed", async ({ page }) => {
@@ -147,4 +147,27 @@ test("overview states the search limits and their scope", async ({ page }) => {
   await expect(page.getByTestId("search-limits")).toHaveText(/· complete$/);
   await expect(page.getByTestId("search-scope")).toContainText("network pivot");
   await expect(page.getByTestId("search-incomplete")).toHaveCount(0);
+});
+
+test("dark theme is the default and the toggle switches and remembers light", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  expect(bg).toBe("rgb(13, 14, 16)");
+  await page.getByTestId("theme-toggle").click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe("rgb(211, 225, 248)");
+  await page.getByTestId("theme-toggle").click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+});
+
+test("secondary paths are compact and expand on demand", async ({ page }) => {
+  await analyse(page, "insecure-kubernetes");
+  const second = page.getByTestId("path-card").nth(1);
+  await expect(second.locator(".route")).toBeVisible();
+  await expect(second.locator(".steps")).toBeHidden();
+  await second.locator("summary").click();
+  await expect(second.locator(".steps")).toBeVisible();
 });

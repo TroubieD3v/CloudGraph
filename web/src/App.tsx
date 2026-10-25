@@ -1,15 +1,30 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  ArrowRight,
+  CircleHelp,
+  FlaskConical,
+  GitCompareArrows,
+  LayoutDashboard,
+  ListChecks,
+  Moon,
+  Sun,
+  Upload,
+  Waypoints,
+  type LucideIcon,
+} from "lucide-react";
 import { api } from "./api";
 import type { Analysis, Demo, HistoryItem, Source } from "./types";
+import { useTheme, type Theme } from "./theme";
 import { DiffView } from "./components/DiffView";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Findings } from "./components/Findings";
 import { GraphView } from "./components/GraphView";
 import { Overview } from "./components/Overview";
 import { SourceViewer } from "./components/SourceViewer";
+import { Unknowns } from "./components/Unknowns";
 import { WhatIf } from "./components/WhatIf";
 
-type Tab = "overview" | "graph" | "findings" | "whatif" | "diff" | "unknown";
+export type Tab = "overview" | "graph" | "findings" | "whatif" | "diff" | "unknown";
 
 const ACCEPT = ".yaml,.yml,.json";
 
@@ -24,6 +39,7 @@ async function readFiles(list: FileList | File[]): Promise<{ name: string; conte
 }
 
 export default function App() {
+  const [theme, toggleTheme] = useTheme();
   const [demos, setDemos] = useState<Demo[]>([]);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [a, setA] = useState<Analysis | null>(null);
@@ -86,28 +102,72 @@ export default function App() {
     setTab("graph");
   };
 
+  const header = (
+    <Header
+      theme={theme}
+      onTheme={toggleTheme}
+      history={history}
+      current={a ?? undefined}
+      onPick={(id) => adopt(api.get(id))}
+      onUpload={() => fileInput.current?.click()}
+      demos={a ? demos : undefined}
+      onDemo={(n) => adopt(api.analyzeDemo(n))}
+      busy={busy}
+      onHome={() => setA(null)}
+    />
+  );
+  const input = (
+    <input ref={fileInput} type="file" accept={ACCEPT} multiple hidden onChange={(e) => e.target.files && void onFiles(e.target.files)} data-testid="file-input" />
+  );
+
   if (!a) {
+    const shown = demos.filter((d) => d.name !== "vulnerable-all");
     return (
       <div className="app">
-        <Header history={history} current={undefined} onPick={(id) => adopt(api.get(id))} onUpload={() => fileInput.current?.click()} />
-        <div className="content">
+        {header}
+        <main className="content">
           <div className="welcome">
-            <h1>Infrastructure Attack Path Analysis</h1>
-            <p className="note">
-              Import Docker Compose, Kubernetes YAML or a Terraform plan (<code>terraform show -json</code>). CloudGraph builds a resource graph
-              locally, explains how weaknesses chain together, and never connects to your cloud account.
+            <span className="kicker">Offline · Static analysis</span>
+            <h1 className="display">Infrastructure attack path analysis</h1>
+            <p className="lede">
+              Import Docker Compose, Kubernetes YAML or a Terraform plan (<code>terraform show -json</code>). CloudGraph builds a resource graph{" "}
+              <b>locally</b>, explains how separate weaknesses <em>chain together</em>, and never connects to your cloud account.
             </p>
             {err && <div className="error">{err}</div>}
-            <h2 className="section">Try a demo project</h2>
-            {demos
-              .filter((d) => d.name !== "vulnerable-all")
-              .map((d) => (
-                <button key={d.name} className="demo-card" disabled={busy} onClick={() => adopt(api.analyzeDemo(d.name))} data-testid={`demo-${d.name}`}>
+
+            <div className="section-head">
+              <div>
+                <h2>Try a demo project</h2>
+                <p>Bundled with the binary; nothing is downloaded.</p>
+              </div>
+            </div>
+            <div className="grid cols-3">
+              {shown.map((d, i) => (
+                <button
+                  key={d.name}
+                  className={`demo-card ${i === 0 ? "featured" : ""}`}
+                  disabled={busy}
+                  onClick={() => adopt(api.analyzeDemo(d.name))}
+                  data-testid={`demo-${d.name}`}
+                >
+                  <span className={`tile ${d.name.startsWith("hardened") ? "green" : i === 0 ? "dark" : "amber"}`}>
+                    {d.name.startsWith("hardened") ? <ListChecks size={22} /> : d.name.includes("kubernetes") ? <Waypoints size={22} /> : <LayoutDashboard size={22} />}
+                  </span>
                   <b>{d.title}</b>
                   <span className="note">{d.description}</span>
+                  <span className="go">
+                    Analyse <ArrowRight size={15} />
+                  </span>
                 </button>
               ))}
-            <h2 className="section">Or analyse your own files</h2>
+            </div>
+
+            <div className="section-head">
+              <div>
+                <h2>Or analyse your own files</h2>
+                <p>YAML and JSON stay on this machine; secrets are masked before anything is stored.</p>
+              </div>
+            </div>
             <div
               className={`dropzone ${over ? "over" : ""}`}
               onDragOver={(e) => {
@@ -121,56 +181,64 @@ export default function App() {
                 void onFiles(e.dataTransfer.files);
               }}
             >
-              Drop YAML / JSON files here or{" "}
-              <button className="btn small" onClick={() => fileInput.current?.click()}>
-                choose files
+              <span className="tile">
+                <Upload size={22} />
+              </span>
+              <div>Drop Compose, Kubernetes or Terraform plan files here</div>
+              <button className="btn primary" onClick={() => fileInput.current?.click()}>
+                Choose files
               </button>
             </div>
           </div>
-        </div>
-        <input ref={fileInput} type="file" accept={ACCEPT} multiple hidden onChange={(e) => e.target.files && void onFiles(e.target.files)} data-testid="file-input" />
+        </main>
+        {input}
       </div>
     );
   }
 
-  const tabs: [Tab, string, number?][] = [
-    ["overview", "Overview", a.paths.length],
-    ["graph", "Graph"],
-    ["findings", "Findings", a.findings.length],
-    ["whatif", "What-if"],
-    ["diff", "Diff"],
-    ["unknown", "Unknown", a.unknowns.length],
+  const tabs: [Tab, string, LucideIcon, number?][] = [
+    ["overview", "Overview", LayoutDashboard, a.paths.length],
+    ["graph", "Graph", Waypoints],
+    ["findings", "Findings", ListChecks, a.findings.length],
+    ["whatif", "What-if", FlaskConical],
+    ["diff", "Diff", GitCompareArrows],
+    ["unknown", "Unknown", CircleHelp, a.unknowns.length],
   ];
 
   return (
     <div className="app">
-      <Header history={history} current={a} onPick={(id) => adopt(api.get(id))} onUpload={() => fileInput.current?.click()} demos={demos} onDemo={(n) => adopt(api.analyzeDemo(n))} busy={busy} />
-      <nav className="tabs" role="tablist">
-        {tabs.map(([id, label, count]) => (
-          <button key={id} role="tab" aria-selected={tab === id} className="tab" onClick={() => setTab(id)}>
-            {label}
-            {count !== undefined && <span className="count">{count}</span>}
-          </button>
-        ))}
-      </nav>
-      <div className={`content ${tab === "graph" ? "full" : ""}`}>
+      {header}
+      <div className="navwrap">
+        <nav className="navpill" role="tablist" aria-label="Views">
+          {tabs.map(([id, label, Icon, count]) => (
+            <button key={id} role="tab" aria-selected={tab === id} className="navitem" onClick={() => setTab(id)}>
+              <Icon size={18} />
+              {label}
+              {count !== undefined && <span className="count">{count}</span>}
+            </button>
+          ))}
+        </nav>
+      </div>
+      <main className={`content ${tab === "graph" ? "full" : ""}`}>
         {err && <div className="error">{err}</div>}
         <ErrorBoundary resetKey={`${a.id}:${tab}`}>
-          {tab === "overview" && <Overview a={a} onOpen={setSrc} onShowPath={showPath} onDelete={removeCurrent} />}
-          {tab === "graph" && <GraphView a={a} pathId={pathId} setPathId={setPathId} onOpen={setSrc} />}
+          {tab === "overview" && <Overview a={a} onOpen={setSrc} onShowPath={showPath} onDelete={removeCurrent} onNavigate={setTab} />}
+          {tab === "graph" && <GraphView a={a} pathId={pathId} setPathId={setPathId} onOpen={setSrc} theme={theme} />}
           {tab === "findings" && <Findings a={a} onOpen={setSrc} />}
           {tab === "whatif" && <WhatIf a={a} />}
           {tab === "diff" && <DiffView history={history} refresh={refresh} />}
           {tab === "unknown" && <Unknowns a={a} onOpen={setSrc} />}
         </ErrorBoundary>
-      </div>
+      </main>
       {src && <SourceViewer src={src} lines={a.sources?.[src.file]} onClose={() => setSrc(null)} />}
-      <input ref={fileInput} type="file" accept={ACCEPT} multiple hidden onChange={(e) => e.target.files && void onFiles(e.target.files)} data-testid="file-input" />
+      {input}
     </div>
   );
 }
 
 function Header({
+  theme,
+  onTheme,
   history,
   current,
   onPick,
@@ -178,26 +246,43 @@ function Header({
   demos,
   onDemo,
   busy,
+  onHome,
 }: {
+  theme: Theme;
+  onTheme: () => void;
   history: HistoryItem[];
   current?: Analysis;
   onPick: (id: string) => void;
   onUpload: () => void;
   demos?: Demo[];
-  onDemo?: (name: string) => void;
+  onDemo: (name: string) => void;
   busy?: boolean;
+  onHome: () => void;
 }) {
+  const next = theme === "dark" ? "light" : "dark";
   return (
     <header className="topbar">
-      <div className="brand">
-        <b>CloudGraph</b>
-        <span>Infrastructure Security Intelligence</span>
-      </div>
+      <a
+        className="brand"
+        href="/"
+        onClick={(e) => {
+          e.preventDefault();
+          onHome();
+        }}
+      >
+        <span className="brand-mark">
+          <Waypoints size={22} />
+        </span>
+        <span className="brand-text">
+          <b>CloudGraph</b>
+          <small>Infrastructure attack paths</small>
+        </span>
+      </a>
       <div className="spacer" />
-      <div className="picker">
-        {busy && <span className="note">analysing…</span>}
+      <div className="controls">
+        {busy && <span className="busy">analysing…</span>}
         {history.length > 0 && (
-          <select value={current?.id ?? ""} onChange={(e) => e.target.value && onPick(e.target.value)} aria-label="Analysis history">
+          <select className="hide-sm" value={current?.id ?? ""} onChange={(e) => e.target.value && onPick(e.target.value)} aria-label="Analysis history">
             {!current && <option value="">History…</option>}
             {history.map((h) => (
               <option key={h.id} value={h.id}>
@@ -206,8 +291,8 @@ function Header({
             ))}
           </select>
         )}
-        {demos && onDemo && (
-          <select value="" onChange={(e) => e.target.value && onDemo(e.target.value)} aria-label="Analyse demo">
+        {demos && (
+          <select className="hide-sm" value="" onChange={(e) => e.target.value && onDemo(e.target.value)} aria-label="Analyse demo">
             <option value="">Analyse demo…</option>
             {demos.map((d) => (
               <option key={d.name} value={d.name}>
@@ -216,34 +301,14 @@ function Header({
             ))}
           </select>
         )}
-        <button className="btn" onClick={onUpload}>
-          Upload files
+        <button className="btn primary" onClick={onUpload}>
+          <Upload size={16} />
+          <span className="hide-sm">Upload files</span>
+        </button>
+        <button className="icon-btn" onClick={onTheme} aria-label={`Switch to ${next} theme`} title={`Switch to ${next} theme`} data-testid="theme-toggle">
+          {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
         </button>
       </div>
     </header>
-  );
-}
-
-function Unknowns({ a, onOpen }: { a: Analysis; onOpen: (s: Source) => void }) {
-  return (
-    <div>
-      <div className="banner">
-        Unknown means the input does not contain enough information. CloudGraph reports it instead of inventing a connection between resources.
-      </div>
-      {a.unknowns.length === 0 && <div className="card empty">Nothing is unknown: every reference could be resolved.</div>}
-      {a.unknowns.map((u) => (
-        <div key={u.id} className="card" data-testid="unknown">
-          <span className="chip unknown">Unknown</span> {u.message}
-          <div style={{ marginTop: 4 }}>
-            {u.source.file && (
-              <button className="srcbtn" onClick={() => onOpen(u.source)}>
-                {u.source.file}
-                {u.source.line ? `:${u.source.line}` : ""}
-              </button>
-            )}
-          </div>
-        </div>
-      ))}
-    </div>
   );
 }

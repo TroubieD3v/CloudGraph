@@ -58,5 +58,14 @@ await page.getByTestId("diff-result").waitFor();
 await page.screenshot({ path: out + "diff.png" });
 await frame(35);
 
+// The same overview in the light theme (dark is the default).
+await page.getByTestId("theme-toggle").click();
+await page.getByRole("tab", { name: /Overview/ }).click();
+await page.getByTestId("stat-paths").waitFor();
+await page.waitForTimeout(400);
+await page.screenshot({ path: out + "overview-light.png" });
+await frame(30);
+await page.getByTestId("theme-toggle").click();
+
 await browser.close();
 console.log("screenshots and frames written to", out);

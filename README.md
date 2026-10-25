@@ -86,7 +86,11 @@ simulation reuses the limits of the analysis it starts from, so it never "resolv
 4. **Simulate fixes**: tick one or more fixes, watch the paths that disappear, export the patch.
 5. **Compare** two states (before/after a change, vulnerable vs hardened) and gate CI on new findings.
 
-The interface has six views: Overview, Graph, Findings, What-if, Diff and Unknown.
+The interface has six views: Overview, Graph, Findings, What-if, Diff and Unknown. It opens in a dark theme; the
+sun/moon button in the top bar switches to the light one and remembers the choice. Fonts and icons are bundled, so the
+UI works without any Internet access.
+
+![The overview in the light theme](docs/screenshots/overview-light.png)
 
 ## Quick start (Docker)
 
@@ -212,7 +216,8 @@ built in, Kubernetes admission objects (PodSecurity labels), and runtime context
 
 | Version | Result |
 |---|---|
-| **v0.1.0** | **Compose, Kubernetes and Terraform import, 41 rules, attack paths, what-if with patch export, diff, SARIF, web UI, Docker** |
+| v0.1.0 | Compose, Kubernetes and Terraform import, 41 rules, attack paths, what-if with patch export, diff, SARIF, web UI, Docker |
+| **v0.2.0** | **Redesigned interface: new palette and type, dark theme by default with a light theme toggle, bundled fonts and icons, restyled HTML report** |
 
 Pushing a `v*` tag builds static binaries for Linux, macOS and Windows with checksums
 ([release.yml](.github/workflows/release.yml)).

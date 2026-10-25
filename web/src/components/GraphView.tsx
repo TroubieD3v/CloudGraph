@@ -15,6 +15,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import dagre from "@dagrejs/dagre";
 import type { Analysis, Edge, Finding, Resource, Severity, Source } from "../types";
+import type { Theme } from "../theme";
 import { Badge, Conf, SEVERITIES, SourceLink, nameMap } from "./common";
 
 interface NodeData extends Record<string, unknown> {
@@ -46,6 +47,12 @@ function CgNode({ data, selected }: NodeProps<RFNode<NodeData>>) {
 
 const nodeTypes = { cg: CgNode };
 
+// SVG markers cannot read CSS variables, so edge colours come from the theme here.
+const COLORS: Record<Theme, Record<string, string>> = {
+  dark: { hot: "#ff5a50", attack: "#ff8f2f", structure: "#5b6b82", grid: "#22262d", minimapBg: "#16181c", minimapDim: "#262a31", minimapNode: "#8291a8", minimapMask: "rgba(13,14,16,.6)" },
+  light: { hot: "#ba1a1a", attack: "#d97706", structure: "#8291a8", grid: "#c3d3ee", minimapBg: "#e8f0ff", minimapDim: "#cfdcf5", minimapNode: "#52627a", minimapMask: "rgba(211,225,248,.6)" },
+};
+
 function layout(nodes: RFNode<NodeData>[], edges: RFEdge[]): RFNode<NodeData>[] {
   const g = new dagre.graphlib.Graph();
   g.setGraph({ rankdir: "LR", nodesep: 18, ranksep: 48, marginx: 20, marginy: 20 });
@@ -68,12 +75,15 @@ export function GraphView({
   pathId,
   setPathId,
   onOpen,
+  theme,
 }: {
   a: Analysis;
   pathId: string;
   setPathId: (id: string) => void;
   onOpen: (s: Source) => void;
+  theme: Theme;
 }) {
+  const C = COLORS[theme];
   const [mode, setMode] = useState<"attack" | "all">("attack");
   const [sel, setSel] = useState<Selection>(null);
   const names = useMemo(() => nameMap(a), [a]);
@@ -98,7 +108,7 @@ export function GraphView({
       .map((e) => {
         const onPath = pathEdges.has(e.id);
         const dimmed = !!path && !onPath;
-        const color = onPath ? "#e5534b" : e.attack ? "#e89b3c" : "#64748b";
+        const color = onPath ? C.hot : e.attack ? C.attack : C.structure;
         return {
           id: e.id,
           source: e.from,
@@ -127,7 +137,7 @@ export function GraphView({
         };
       });
     return { nodes: layout(rfNodes, rfEdges), edges: rfEdges };
-  }, [a, mode, path, names, findingsBy]);
+  }, [a, mode, path, names, findingsBy, C]);
 
   const selectedNode = sel?.kind === "node" ? names.get(sel.id) : undefined;
   const selectedEdge = sel?.kind === "edge" ? a.edges.find((e) => e.id === sel.id) : undefined;
@@ -136,14 +146,14 @@ export function GraphView({
     <>
       <div className="graph-wrap" data-testid="graph">
         <div className="graph-tools">
-          <label className="note">
+          <label>
             View{" "}
             <select value={mode} onChange={(e) => setMode(e.target.value as "attack" | "all")} aria-label="Graph view">
               <option value="attack">Attack-relevant</option>
               <option value="all">All resources</option>
             </select>
           </label>
-          <label className="note">
+          <label>
             Path{" "}
             <select value={pathId} onChange={(e) => setPathId(e.target.value)} aria-label="Highlight path">
               <option value="">— none —</option>
@@ -168,6 +178,9 @@ export function GraphView({
           <span>
             <i className="str" /> structure only
           </span>
+          <span>
+            <i className="hot" /> highlighted path
+          </span>
         </div>
         <ReactFlow
           nodes={nodes.map((n) => ({ ...n, selected: sel?.kind === "node" && sel.id === n.id }))}
@@ -181,16 +194,16 @@ export function GraphView({
           onEdgeClick={(_, e) => setSel({ kind: "edge", id: e.id })}
           onPaneClick={() => setSel(null)}
           proOptions={{ hideAttribution: true }}
-          colorMode="dark"
+          colorMode={theme}
         >
-          <Background gap={22} color="#202734" />
+          <Background gap={22} color={C.grid} />
           <Controls showInteractive={false} />
           <MiniMap
             pannable
             zoomable
-            bgColor="#151a23"
-            nodeColor={(n) => ((n.data as NodeData).res.sensitive ? "#e5534b" : (n.data as NodeData).dim ? "#2a3140" : "#6b7891")}
-            maskColor="rgba(13,16,22,.55)"
+            bgColor={C.minimapBg}
+            nodeColor={(n) => ((n.data as NodeData).res.sensitive ? C.hot : (n.data as NodeData).dim ? C.minimapDim : C.minimapNode)}
+            maskColor={C.minimapMask}
           />
           <FitOnChange nodeIds={path?.nodes} trigger={`${pathId}|${mode}|${sel ? "open" : "closed"}`} />
         </ReactFlow>
@@ -266,7 +279,7 @@ function NodeInspector({ a, res, findings, names, onOpen }: { a: Analysis; res: 
       </dl>
       {findings.length > 0 && (
         <>
-          <h2 className="section">Findings</h2>
+          <span className="overline">Findings</span>
           {findings.map((f) => (
             <div key={f.id} className="edge-item">
               <Badge sev={f.severity} /> <span className="mono">{f.ruleId}</span>
@@ -276,11 +289,11 @@ function NodeInspector({ a, res, findings, names, onOpen }: { a: Analysis; res: 
           ))}
         </>
       )}
-      {inn.length > 0 && <h2 className="section">Incoming</h2>}
+      {inn.length > 0 && <span className="overline">Incoming</span>}
       {inn.map((e) => (
         <EdgeBlock key={e.id} e={e} names={names} onOpen={onOpen} dir="in" />
       ))}
-      {out.length > 0 && <h2 className="section">Outgoing</h2>}
+      {out.length > 0 && <span className="overline">Outgoing</span>}
       {out.map((e) => (
         <EdgeBlock key={e.id} e={e} names={names} onOpen={onOpen} dir="out" />
       ))}

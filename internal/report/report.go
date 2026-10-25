@@ -94,19 +94,22 @@ var htmlTmpl = template.Must(template.New("r").Funcs(template.FuncMap{
 }).Parse(`<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>CloudGraph report — {{.A.Name}}</title>
 <style>
-:root{color-scheme:dark;--bg:#0f1115;--card:#171a21;--line:#262b36;--fg:#e6e8ee;--mut:#8b93a7;--crit:#ef5350;--high:#ff8a3d;--med:#e8b53c;--low:#5aa9ff;--info:#8b93a7}
-body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 system-ui,Segoe UI,sans-serif}
-main{max-width:1000px;margin:0 auto;padding:32px 20px}
-h1{font-size:22px;margin:0 0 4px}h2{font-size:16px;margin:32px 0 12px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
-.stats{display:flex;gap:12px;margin:16px 0}.stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 18px}
-.stat b{display:block;font-size:24px}.stat span{color:var(--mut);font-size:12px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:10px 0}
-.badge{display:inline-block;border-radius:4px;padding:1px 8px;font-size:11px;font-weight:600;color:#111}
-.critical{background:var(--crit)}.high{background:var(--high)}.medium{background:var(--med)}.low{background:var(--low)}.info{background:var(--info)}
-code{font-family:ui-monospace,Consolas,monospace;color:var(--mut)}ol{margin:8px 0 0 18px;padding:0}li{margin:3px 0}
-.note{color:var(--mut);font-size:12px}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:6px 8px;border-top:1px solid var(--line);vertical-align:top}
+:root{color-scheme:dark;--bg:#0d0e10;--card:#16181c;--card2:#1d2025;--line:#262a31;--fg:#f2f4f7;--mut:#a7b3c6;--dim:#8291a8;--acc:#ff8f2f;--ok:#53bc74;--crit:#ff5a50;--high:#ff8f2f;--med:#ffb87a;--low:#262a31;--lowfg:#f2f4f7;--info:#1d2025}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.55 Inter,system-ui,Segoe UI,sans-serif}
+main{max-width:1040px;margin:0 auto;padding:40px 24px}
+h1{font:700 40px/1.05 Manrope,system-ui,sans-serif;letter-spacing:-.04em;margin:10px 0 8px}
+h2{font:700 22px Manrope,system-ui,sans-serif;letter-spacing:-.02em;margin:40px 0 14px}
+.kicker{display:inline-block;padding:3px 12px;border-radius:999px;background:color-mix(in srgb,var(--acc) 15%,transparent);color:var(--acc);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:24px 0}.stat{background:var(--card);border-radius:16px;padding:16px 18px}
+.stat b{display:block;font:700 30px Manrope,system-ui,sans-serif}.stat span{color:var(--dim);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+.card{background:var(--card);border-radius:20px;padding:20px 22px;margin:14px 0}
+.badge{display:inline-block;padding:2px 8px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#170b00}
+.critical{background:var(--crit);color:#fff}.high{background:var(--high)}.medium{background:var(--med)}.low{background:var(--low);color:var(--lowfg)}.info{background:var(--info);color:var(--lowfg)}
+code{font-family:ui-monospace,Consolas,monospace;color:var(--acc)}ol{margin:12px 0 0 20px;padding:0}li{margin:5px 0}
+.note{color:var(--dim);font-size:12.5px}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:8px;border-top:1px solid var(--line);vertical-align:top}th{color:var(--dim);font-size:11px;letter-spacing:.1em;text-transform:uppercase}
 </style></head><body><main>
-<h1>CloudGraph — {{.A.Name}}</h1>
+<span class="kicker">CloudGraph · static analysis</span>
+<h1>{{.A.Name}}</h1>
 <div class="note">Infrastructure Attack Path Analysis · generated {{.A.CreatedAt}} · static analysis of configuration only</div>
 <div class="stats">
 <div class="stat"><b>{{.A.Summary.Resources}}</b><span>Resources</span></div>
@@ -114,7 +117,7 @@ code{font-family:ui-monospace,Consolas,monospace;color:var(--mut)}ol{margin:8px 
 <div class="stat"><b>{{.A.Summary.Paths}}</b><span>Risk paths</span></div>
 <div class="stat"><b>{{.A.Summary.Unknowns}}</b><span>Unknown</span></div></div>
 
-{{range .A.PathSearch.Notices}}<div class="card" style="border-color:#5b4420;color:#e8c88f">{{.}}</div>{{end}}
+{{range .A.PathSearch.Notices}}<div class="card" style="color:var(--acc)">{{.}}</div>{{end}}
 <h2>Potential attack paths</h2>
 <p class="note">A path shows how separate weaknesses could be chained. It is conditional: connections do not prove that the exposed application can actually be compromised.</p>
 {{range .A.Paths}}<div class="card"><span class="badge {{.Severity}}">{{upper .Severity}} {{.Score}}</span> <b>{{.Title}}</b> <span class="note">· {{.Confidence}}</span>

@@ -32,7 +32,7 @@ export function SourceViewer({
           {src.path && <span className="note">{src.path}</span>}
           <span className="spacer" />
           <span className="note">secrets are masked</span>
-          <button className="btn small" onClick={onClose}>
+          <button className="btn small secondary" onClick={onClose}>
             Close
           </button>
         </header>

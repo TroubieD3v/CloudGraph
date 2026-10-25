@@ -17,7 +17,7 @@ import (
 )
 
 // version is overridden at release time: -ldflags "-X main.version=v1.2.3"
-var version = "0.1.0"
+var version = "0.2.0"
 
 const usage = `CloudGraph — offline infrastructure attack path analysis
 
