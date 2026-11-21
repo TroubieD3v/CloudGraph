@@ -1,0 +1,35 @@
+# Weekly, grouped dependency updates: one PR per ecosystem instead of one per package.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule: { interval: weekly }
+    groups:
+      go:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /web
+    schedule: { interval: weekly }
+    groups:
+      npm:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directory: /
+    schedule: { interval: weekly }
+    groups:
+      base-images:
+        patterns: ["*"]
+    ignore:
+      # Stay on the Node.js LTS line: odd majors never become LTS, and version ranges do not match
+      # tags like "22-alpine", so majors are moved by hand when the next LTS is out. Minor/patch still flow.
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+    groups:
+      actions:
+        patterns: ["*"]
