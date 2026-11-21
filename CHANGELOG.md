@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Interface redesign: the graph fills the window with round resource nodes, an icon per kind and relationship
+  names on the highlighted path; pathfinding controls float over the canvas and the inspector docks to the right.
+  Tool tabs replace the pill navigation, every other view uses dense panels. Graphite dark theme and a soft light
+  theme, IBM Plex Sans and Mono. The HTML report follows the same design; screenshots and the demo GIF are
+  regenerated. The screenshot script now resolves its output folder correctly when the path contains spaces.
+
 ## 0.3.0
 
 - "Complete" is now two answers. `pathSearch.searchComplete`: no depth or candidate limit stopped the search.

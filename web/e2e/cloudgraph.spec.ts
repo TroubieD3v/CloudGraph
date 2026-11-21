@@ -155,12 +155,12 @@ test("dark theme is the default and the toggle switches and remembers light", as
   await page.goto("/");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-  expect(bg).toBe("rgb(13, 14, 16)");
+  expect(bg).toBe("rgb(25, 27, 30)");
   await page.getByTestId("theme-toggle").click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
-  expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe("rgb(211, 225, 248)");
+  expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe("rgb(238, 240, 242)");
   await page.getByTestId("theme-toggle").click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 });

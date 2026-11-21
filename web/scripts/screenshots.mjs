@@ -3,10 +3,11 @@
 //   PW_CHANNEL=chrome node scripts/screenshots.mjs
 //   python scripts/make_gif.py          # needs Pillow; assembles the frames into demo.gif
 import { mkdirSync, rmSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
 
 const base = process.env.CLOUDGRAPH_URL || "http://127.0.0.1:18080";
-const out = new URL("../../docs/screenshots/", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
+const out = fileURLToPath(new URL("../../docs/screenshots/", import.meta.url)); // decodes spaces in the path
 const framesDir = out + "frames/";
 rmSync(framesDir, { recursive: true, force: true });
 mkdirSync(framesDir, { recursive: true });
