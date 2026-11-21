@@ -14,6 +14,10 @@ updates:
     groups:
       npm:
         patterns: ["*"]
+    ignore:
+      # Majors are migrations, not routine bumps: they are done by hand in their own change.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: docker
     directory: /
@@ -26,6 +30,9 @@ updates:
       # tags like "22-alpine", so majors are moved by hand when the next LTS is out. Minor/patch still flow.
       - dependency-name: node
         update-types: ["version-update:semver-major"]
+      # The Python runtime moves together with the CI test matrix, never on its own.
+      - dependency-name: python
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
 
   - package-ecosystem: github-actions
     directory: /
