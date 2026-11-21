@@ -107,19 +107,19 @@ var htmlTmpl = template.Must(template.New("r").Funcs(template.FuncMap{
 }).Parse(`<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>CloudGraph report — {{.A.Name}}</title>
 <style>
-:root{color-scheme:dark;--bg:#0d0e10;--card:#16181c;--card2:#1d2025;--line:#262a31;--fg:#f2f4f7;--mut:#a7b3c6;--dim:#8291a8;--acc:#ff8f2f;--ok:#53bc74;--crit:#ff5a50;--high:#ff8f2f;--med:#ffb87a;--low:#262a31;--lowfg:#f2f4f7;--info:#1d2025}
-body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.55 Inter,system-ui,Segoe UI,sans-serif}
-main{max-width:1040px;margin:0 auto;padding:40px 24px}
-h1{font:700 40px/1.05 Manrope,system-ui,sans-serif;letter-spacing:-.04em;margin:10px 0 8px}
-h2{font:700 22px Manrope,system-ui,sans-serif;letter-spacing:-.02em;margin:40px 0 14px}
-.kicker{display:inline-block;padding:3px 12px;border-radius:999px;background:color-mix(in srgb,var(--acc) 15%,transparent);color:var(--acc);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:24px 0}.stat{background:var(--card);border-radius:16px;padding:16px 18px}
-.stat b{display:block;font:700 30px Manrope,system-ui,sans-serif}.stat span{color:var(--dim);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
-.card{background:var(--card);border-radius:20px;padding:20px 22px;margin:14px 0}
-.badge{display:inline-block;padding:2px 8px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#170b00}
-.critical{background:var(--crit);color:#fff}.high{background:var(--high)}.medium{background:var(--med)}.low{background:var(--low);color:var(--lowfg)}.info{background:var(--info);color:var(--lowfg)}
-code{font-family:ui-monospace,Consolas,monospace;color:var(--acc)}ol{margin:12px 0 0 20px;padding:0}li{margin:5px 0}
-.note{color:var(--dim);font-size:12.5px}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:8px;border-top:1px solid var(--line);vertical-align:top}th{color:var(--dim);font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+:root{color-scheme:dark;--bg:#191b1e;--card:#1f2226;--card2:#24272c;--line:#2f333a;--fg:#d5d7da;--mut:#a3a8ae;--dim:#8d939a;--acc:#8fb4d8;--warn:#d0a866;--ok:#94b08e;--crit:#d98577;--high:#d0a866;--med:#c9b07f;--low:#9ba8b5;--lowfg:#d5d7da;--info:#6b7178}
+body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.5 'IBM Plex Sans',system-ui,'Segoe UI',sans-serif;font-feature-settings:"tnum"}
+main{max-width:1080px;margin:0 auto;padding:28px 24px}
+h1{font-weight:600;font-size:20px;line-height:1.2;margin:8px 0 4px}
+h2{font-weight:600;font-size:14px;margin:28px 0 8px}
+.kicker{display:inline-block;padding:0 6px;line-height:18px;border:1px solid var(--line);color:var(--dim);font-size:11px;font-weight:500}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;margin:16px 0;background:var(--line);border:1px solid var(--line)}.stat{background:var(--card);padding:8px 12px}
+.stat b{display:block;font:500 20px 'IBM Plex Mono',ui-monospace,Consolas,monospace}.stat span{color:var(--dim);font-size:12px}
+.card{background:var(--card);border:1px solid var(--line);padding:12px 14px;margin:8px 0}
+.badge{display:inline-block;padding:0 6px;line-height:18px;font-size:11px;font-weight:500;border:1px solid var(--line);color:var(--dim)}
+.critical{color:var(--crit);border-color:color-mix(in srgb,var(--crit) 45%,transparent);background:color-mix(in srgb,var(--crit) 12%,transparent)}.high{color:var(--high);border-color:color-mix(in srgb,var(--high) 45%,transparent);background:color-mix(in srgb,var(--high) 12%,transparent)}.medium{color:var(--med)}.low{color:var(--low)}.info{color:var(--info)}
+code{font-family:'IBM Plex Mono',ui-monospace,Consolas,monospace;font-size:12px;color:var(--acc)}ol{margin:8px 0 0 20px;padding:0}li{margin:3px 0}
+.note{color:var(--dim);font-size:12px}table{width:100%;border-collapse:collapse;border:1px solid var(--line);background:var(--card)}td,th{text-align:left;padding:5px 8px;border-top:1px solid var(--line);vertical-align:top}th{color:var(--dim);font-size:12px;font-weight:500;background:var(--card2)}
 </style></head><body><main>
 <span class="kicker">CloudGraph · static analysis</span>
 <h1>{{.A.Name}}</h1>

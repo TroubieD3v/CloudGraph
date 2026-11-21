@@ -13,6 +13,7 @@ import {
   type NodeProps,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import { Box, BrickWall, Crosshair, Database, DoorOpen, Globe, KeyRound, Link2, Lock, Network, Route, ScrollText, Server, Shield, User, type LucideIcon } from "lucide-react";
 import dagre from "@dagrejs/dagre";
 import type { Analysis, Edge, Finding, Resource, Severity, Source } from "../types";
 import type { Theme } from "../theme";
@@ -24,22 +25,32 @@ interface NodeData extends Record<string, unknown> {
   dim: boolean;
 }
 
-const W = 200;
-const H = 56;
+// Nodes are drawn as a 44 px disc with the label underneath; the layout reserves room for the label.
+const D = 44;
+const LAYOUT_W = 150;
+const LAYOUT_H = 78;
+
+const KIND_ICON: Record<string, LucideIcon> = {
+  Internet: Globe, Ingress: DoorOpen, Service: Network, Firewall: BrickWall, Workload: Box, Instance: Server,
+  ServiceAccount: KeyRound, Identity: User, Binding: Link2, Role: Shield, Policy: ScrollText,
+  Capability: Crosshair, Host: Server, Secret: Lock, Database: Database,
+};
 
 function CgNode({ data, selected }: NodeProps<RFNode<NodeData>>) {
   const { res, worst, dim } = data;
   const cls = ["rf-node", `k-${res.kind}`, res.sensitive ? "sensitive" : "", res.kind === "Internet" ? "internet" : "", dim ? "dim" : "", selected ? "selected" : ""]
     .filter(Boolean)
     .join(" ");
+  const Icon = KIND_ICON[res.kind] ?? (res.sensitive ? Crosshair : Box);
   return (
     <div className={cls} data-testid={`node-${res.id}`} title={res.sensitiveReason ?? res.id}>
       <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
-      <div className="kind">
-        <span>{res.generated && res.kind === "Capability" ? "Sensitive target" : res.type}</span>
-        {worst && <span className={`badge ${worst} sev`}>{worst}</span>}
+      <div className="disc"><Icon /></div>
+      {worst && <span className={`sev ${worst}`} title={worst} />}
+      <div className="label">
+        <span className="name">{res.name}</span>
+        <span className="kind">{res.generated && res.kind === "Capability" ? "Sensitive target" : res.type}</span>
       </div>
-      <div className="name">{res.name}</div>
       <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
     </div>
   );
@@ -49,20 +60,21 @@ const nodeTypes = { cg: CgNode };
 
 // SVG markers cannot read CSS variables, so edge colours come from the theme here.
 const COLORS: Record<Theme, Record<string, string>> = {
-  dark: { hot: "#ff5a50", attack: "#ff8f2f", structure: "#5b6b82", grid: "#22262d", minimapBg: "#16181c", minimapDim: "#262a31", minimapNode: "#8291a8", minimapMask: "rgba(13,14,16,.6)" },
-  light: { hot: "#ba1a1a", attack: "#d97706", structure: "#8291a8", grid: "#c3d3ee", minimapBg: "#e8f0ff", minimapDim: "#cfdcf5", minimapNode: "#52627a", minimapMask: "rgba(211,225,248,.6)" },
+  dark: { hot: "#d98577", attack: "#d0a866", structure: "#4a5058", grid: "#2a2e34", minimapBg: "#1f2226", minimapDim: "#2b2f35", minimapNode: "#6b7178", minimapMask: "rgba(25,27,30,.6)" },
+  light: { hot: "#a8402f", attack: "#87601a", structure: "#a3aab2", grid: "#d5dade", minimapBg: "#f8f9fa", minimapDim: "#dce0e4", minimapNode: "#858c94", minimapMask: "rgba(238,240,242,.6)" },
 };
 
 function layout(nodes: RFNode<NodeData>[], edges: RFEdge[]): RFNode<NodeData>[] {
   const g = new dagre.graphlib.Graph();
-  g.setGraph({ rankdir: "LR", nodesep: 18, ranksep: 48, marginx: 20, marginy: 20 });
+  g.setGraph({ rankdir: "LR", nodesep: 10, ranksep: 70, marginx: 20, marginy: 20 });
   g.setDefaultEdgeLabel(() => ({}));
-  nodes.forEach((n) => g.setNode(n.id, { width: W, height: H }));
+  nodes.forEach((n) => g.setNode(n.id, { width: LAYOUT_W, height: LAYOUT_H }));
   edges.forEach((e) => g.setEdge(e.source, e.target));
   dagre.layout(g);
   return nodes.map((n) => {
     const p = g.node(n.id);
-    return { ...n, position: { x: p.x - W / 2, y: p.y - H / 2 } };
+    // the disc sits in the upper part of the reserved box, the label hangs below it
+    return { ...n, position: { x: p.x - D / 2, y: p.y - LAYOUT_H / 2 } };
   });
 }
 
@@ -113,10 +125,13 @@ export function GraphView({
           id: e.id,
           source: e.from,
           target: e.to,
-          type: "smoothstep",
+          type: "default",
           animated: onPath,
+          // relationship names on the highlighted path, as in attack-graph tools
+          label: onPath ? e.type.replace(/_/g, " ") : undefined,
+          labelBgPadding: [4, 2] as [number, number],
           markerEnd: { type: MarkerType.ArrowClosed, color },
-          style: { stroke: color, strokeWidth: onPath ? 2.6 : 1.5, strokeDasharray: dash[e.confidence], opacity: dimmed ? 0.15 : 1 },
+          style: { stroke: color, strokeWidth: onPath ? 2.2 : 1.3, strokeDasharray: dash[e.confidence], opacity: dimmed ? 0.12 : 1 },
           data: { confidence: e.confidence },
         };
       });
@@ -131,8 +146,8 @@ export function GraphView({
           id,
           type: "cg",
           position: { x: 0, y: 0 },
-          width: W,
-          height: H,
+          width: D,
+          height: D,
           data: { res: names.get(id)!, worst, dim: !!path && !pathNodes.has(id) },
         };
       });
@@ -146,6 +161,7 @@ export function GraphView({
     <>
       <div className="graph-wrap" data-testid="graph">
         <div className="graph-tools">
+          <div className="gt-head"><Route /> Pathfinding</div>
           <label>
             View{" "}
             <select value={mode} onChange={(e) => setMode(e.target.value as "attack" | "all")} aria-label="Graph view">
@@ -196,7 +212,7 @@ export function GraphView({
           proOptions={{ hideAttribution: true }}
           colorMode={theme}
         >
-          <Background gap={22} color={C.grid} />
+          <Background gap={24} size={1.4} color={C.grid} />
           <Controls showInteractive={false} />
           <MiniMap
             pannable
